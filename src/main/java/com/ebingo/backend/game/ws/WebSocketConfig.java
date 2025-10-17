@@ -45,7 +45,7 @@ public class WebSocketConfig {
             if (origin == null ||
                     origin.equals("https://bingofam.com") ||
                     origin.equals("https://www.bingofam.com") ||
-                    origin.equals("https://your-vercel-app.vercel.app") ||
+                    origin.equals("https://ebingo-client-with-telegram-auth.vercel.app") ||
                     origin.equals("http://localhost:3000")) {
 
                 return delegate.handle(session);
