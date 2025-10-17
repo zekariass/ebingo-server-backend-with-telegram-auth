@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: ebingo-server-backend
+  r2dbc:
+    url: ${EBINGO_DB_URL}
+    username: ${EBINGO_DB_USER}
+    password: ${EBINGO_DB_PASSWORD}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    url: ${EBINGO_DB_URL}
+    user: ${EBINGO_DB_USER}
+    password: ${EBINGO_DB_PASSWORD}
+  #  security:
+  #    oauth2:
+  #      resourceserver:
+  #        jwt:
+  #          jwk-set-uri: ${SUPABASE_JWK_ENDPOINT}
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      #      password: ${REDIS_PASSWORD}
+      timeout: 10s
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    path: /docs
+    doc-expansion: none
+
+bingo:
+  card:
+    size: 25
+    maxCardsPerPlayer: 2
+  draw:
+    intervalSeconds: 3
+
+telegram:
+  bot:
+    token: ${TELEGRAM_BOT_TOKEN}
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://192.168.0.20:3000
+      - https://eb81de6f85e4.ngrok-free.app
+      - https://471caa3bbe86.ngrok-free.app

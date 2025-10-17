@@ -1,0 +1,58 @@
+Here the flow:
+
+1. Player Select and enters a specific game room.
+        * Client create a websocket connection.
+        * Client sends a "getRoomState" event to the server via a socket event.
+        * Server send the specific room state to the client via a socket event.
+2. Player selects maximum of 2 cards.
+        * Client sends the selected cards to the server via a socket event.
+        * Server saves the selected cards in a Redis hash.
+        * Server updates subscribed clients the selected cards via a socket event.
+
+        --- Optional - if the player deselects a card,
+        * Client sends the selected cards to the server via a socket event.
+        * Server saves the selected cards in a Redis hash.
+        * Server updates subscribed clients the selected cards via a socket event.
+3. Player clicks the "Join Game" button.
+        * Client sends a "Join game" event to the server via a socket event.
+        * Server checks if the player have selected max of 2 cards.
+        * If so, the server updates the connected players for the game
+        * The server sends "Number of players" event to the subscribed clients via a socket event.
+4. Server sends "countdown" event to the clients via a socket event if minimum players have joined.
+        * Countdown starts from 30 seconds.
+        * When countdown reaches 5 seconds, the server sends "Stop selecting cards" event to the clients via a socket event.
+5. Server sends "game started" event to the clients via a socket event when the countdown ends.
+6. Server sends "number called" event to the clients via a socket event every 3 seconds.
+7. Player clicks the "Bingo" button.
+        * Client sends a "Bingo" event to the server via a socket event.
+        * Server checks if the player has a valid bingo against the drawn numbers, player card, and marked numbers.
+        * if so, the server stop the game and sends the winner with "BingoWinner" event to subscribed clients.
+        * Server reset the room with 0 players, new pool of cards and new game state.
+        * If not, the server sends "InvalidBingoClaim" event to the client via a socket event and disqualifies the player.
+8. Server ends the game when a player wins or all numbers are called.
+        * Server sends "GameOver" event to all subscribed clients with new room and game state via a socket event.
+        * Players are redirected to room page.
+
+-- If no minimum players after countdown.
+9. The server sends "NoMinimumPlayers" event to the subscribed clients via a socket event.
+        * "NoMinimumPlayers" event to the clients with new room and game state via a socket.
+        * Server refunds the players entry fee.
+        * Players are redirected to room page.
+
+10. Player clicks the "Cancel Game" button before the game starts.
+        * Client sends a "PlayerCancelGame" event to the server via a socket event.
+        * Server checks if the game has not started and the player is in the game.
+        * Server refunds the players entry fee and sends "GameCancelledByPlayer" event to the client and redirects the player to the room page.
+        * Players are redirected to room page.
+        * Server updates the connected players count for the game
+        * If game has started, the server sends "GameAlreadyStarted" event to the client via a socket event.
+        * If not, the server sends "Number of players" event to the subscribed clients via a socket event.
+
+
+-- Admin cancel the game.
+11. Admin clicks the "Cancel Game" button.
+        * Admin sends a "Cancel Game" post request.
+        * Server sends "GameCancelledByAdmin" event to all clients with new room and game state via a socket event.
+        * Server refunds the players entry fee.
+        * Players are redirected to room page.
+
