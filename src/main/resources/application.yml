@@ -49,3 +49,4 @@ app:
       - http://192.168.0.20:3000
       - https://eb81de6f85e4.ngrok-free.app
       - https://471caa3bbe86.ngrok-free.app
+      - https://ebingo-client-with-telegram-auth.vercel.app

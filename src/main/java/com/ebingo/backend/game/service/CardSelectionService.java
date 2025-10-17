@@ -301,7 +301,7 @@ public class CardSelectionService {
                         "type", "game.cardSelected",
                         "payload", Map.of(
                                 "cardId", cardId,
-                                "playerId", userId,
+                                "playerId", Long.valueOf(userId),
                                 "message", "Card claimed successfully",
                                 "selectedCards", selectedCards
                         )

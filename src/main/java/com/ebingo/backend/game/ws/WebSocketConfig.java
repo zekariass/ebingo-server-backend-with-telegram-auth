@@ -21,7 +21,7 @@ public class WebSocketConfig {
     @Bean
     public SimpleUrlHandlerMapping handlerMapping() {
         Map<String, WebSocketHandler> urlMap = new HashMap<>();
-        urlMap.put("/ws/game", gameWebSocketHandler); // Your single WS endpoint
+        urlMap.put("/ws/game", originCheckingHandler(gameWebSocketHandler)); // Your single WS endpoint
 
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
         mapping.setUrlMap(urlMap);
