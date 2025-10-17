@@ -21,26 +21,38 @@ public class WebSocketConfig {
     @Bean
     public SimpleUrlHandlerMapping handlerMapping() {
         Map<String, WebSocketHandler> urlMap = new HashMap<>();
-        urlMap.put("/ws/game", originCheckingHandler(gameWebSocketHandler)); // Your single WS endpoint
+        urlMap.put("/ws/game", originCheckingHandler(gameWebSocketHandler));
 
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
         mapping.setUrlMap(urlMap);
-        mapping.setOrder(-1); // Higher priority than other mappings
+        mapping.setOrder(-1);
         return mapping;
     }
-
-//    @Bean
-//    public WebSocketHandlerAdapter handlerAdapter() {
-//        return new WebSocketHandlerAdapter();
-//    }
 
     @Bean
     public WebSocketHandlerAdapter handlerAdapter() {
         return new WebSocketHandlerAdapter();
     }
 
+    /**
+     * Wraps the original WebSocketHandler with origin checking.
+     */
     private WebSocketHandler originCheckingHandler(WebSocketHandler delegate) {
-        return delegate;
-    }
+        return session -> {
+            String origin = session.getHandshakeInfo().getHeaders().getFirst("Origin");
 
+            // Allow these Origins (add yours here)
+            if (origin == null ||
+                    origin.equals("https://bingofam.com") ||
+                    origin.equals("https://www.bingofam.com") ||
+                    origin.equals("https://your-vercel-app.vercel.app") ||
+                    origin.equals("http://localhost:3000")) {
+
+                return delegate.handle(session);
+            }
+
+            System.out.println("WebSocket connection rejected due to invalid Origin: " + origin);
+            return session.close();
+        };
+    }
 }
