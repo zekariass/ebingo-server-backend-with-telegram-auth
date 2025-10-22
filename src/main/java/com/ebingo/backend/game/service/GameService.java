@@ -753,8 +753,8 @@ public class GameService {
             }
 
             state.getDrawnNumbers().add(number);
-            log.info("Drawing number {} for game {}: ", number, state.getGameId());
-            log.info("=====================================>>>: DRAWN NUMBERS: {}", state.getDrawnNumbers());
+//            log.info("Drawing number {} for game {}: ", number, state.getGameId());
+            log.info("=====================================>>>: Drawing number {} for game {} and room {}: drawnNumbers={}", number, state.getGameId(), state.getRoomId(), state.getDrawnNumbers());
 
             // Save updated state to Redis
             return gameStateService.saveGameStateToRedis(state, state.getRoomId())
