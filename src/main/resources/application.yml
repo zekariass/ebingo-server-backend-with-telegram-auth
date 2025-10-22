@@ -16,24 +16,23 @@ spring:
   #        jwt:
   #          jwk-set-uri: ${SUPABASE_JWK_ENDPOINT}
 
-  spring:
-    data:
-      redis:
-        host: ${REDIS_HOST}
-        port: ${REDIS_PORT}
-        # General connection timeout
-        timeout: 5s
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      # General connection timeout
+      timeout: 5s
 
-        lettuce:
-          # Graceful shutdown of Lettuce to prevent "factory destroyed" errors
-          shutdown-timeout: 100ms
+      lettuce:
+        # Graceful shutdown of Lettuce to prevent "factory destroyed" errors
+        shutdown-timeout: 100ms
 
-          pool:
-            # Connection pool tuning (important for high concurrency)
-            max-active: 64          # maximum number of connections that can be allocated
-            max-idle: 32             # number of idle connections to keep
-            min-idle: 8             # minimum number of idle connections to maintain
-            max-wait: 5s           # how long to wait for a connection from the pool before failing
+        pool:
+          # Connection pool tuning (important for high concurrency)
+          max-active: 64          # maximum number of connections that can be allocated
+          max-idle: 32             # number of idle connections to keep
+          min-idle: 8             # minimum number of idle connections to maintain
+          max-wait: 5s           # how long to wait for a connection from the pool before failing
 
 server:
   port: 8080
