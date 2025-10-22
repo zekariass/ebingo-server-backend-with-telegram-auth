@@ -57,7 +57,9 @@ public class PlayerCleanupService {
                                     RedisKeys.playerMarkedNumbersKey(gameId, userId, cardId)))
                             .then();
 
-                    return Mono.when(removeFromAllSelected, releaseCards, deleteKeys, deleteMarkedNumbers)
+                    Mono<Void> removePlayerFromRoom = setOps.remove(RedisKeys.roomPlayersKey(roomId), userId).then();
+
+                    return Mono.when(removeFromAllSelected, releaseCards, deleteKeys, deleteMarkedNumbers, removePlayerFromRoom)
                             .then(Mono.just(cardIds));
                 });
     }
