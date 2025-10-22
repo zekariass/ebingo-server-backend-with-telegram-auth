@@ -762,7 +762,10 @@ public class GameService {
                     .then(publisher.publishEvent(
                             RedisKeys.roomChannel(state.getRoomId()),
                             Map.of("type", "game.numberDrawn",
-                                    "payload", Map.of("number", number))
+                                    "payload", Map.of(
+                                            "number", number,
+                                            "gameId", state.getGameId(),
+                                            "roomId", state.getRoomId()))
                     ))
                     .then();
         });
