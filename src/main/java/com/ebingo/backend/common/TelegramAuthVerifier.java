@@ -46,12 +46,12 @@ public class TelegramAuthVerifier {
             byte[] computed = dataMac.doFinal(dataCheckString.getBytes(StandardCharsets.UTF_8));
             String computedHash = bytesToHex(computed);
 
-            log.info("receivedHash: {}", receivedHash);
-            log.info("computedHash: {}", computedHash);
+//            log.info("receivedHash: {}", receivedHash);
+//            log.info("computedHash: {}", computedHash);
 
 
-            log.info("=============================>>> Params: {}", params);
-            
+//            log.info("=============================>>> Params: {}", params);
+
             if (receivedHash.equalsIgnoreCase(computedHash)) {
                 return Optional.of(params);
             } else {

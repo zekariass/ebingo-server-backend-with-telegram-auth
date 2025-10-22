@@ -11,7 +11,7 @@ import java.util.Set;
 @Builder
 public class GameEndResponse {
     private Long gameId;
-    private String playerId;
+    private Long playerId;
     private String playerName;
     private String cardId;
     private String pattern;

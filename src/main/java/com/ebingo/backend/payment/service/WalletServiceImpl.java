@@ -52,13 +52,13 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
-    public Mono<WalletDto> getWalletBySupabaseId(String phoneNumber) {
-        log.info("Getting wallet by user supabase id: {}", phoneNumber);
+    public Mono<WalletDto> getWalletByTelegramId(Long telegramId) {
+        log.info("Getting wallet by user telegram id: {}", telegramId);
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .flatMap(up -> walletRepository.findByUserProfileId(up.getId()))
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException(
-                        "Wallet not found for user with supabase id: " + phoneNumber)))
+                        "Wallet not found for user with telegram id: " + telegramId)))
                 .map(WalletMapper::toDto);
     }
 
@@ -77,73 +77,50 @@ public class WalletServiceImpl implements WalletService {
     public Mono<WalletDto> debit(Wallet wallet, BigDecimal amount, GameTxnType gameTxnType) {
         if (GameTxnType.GAME_FEE.equals(gameTxnType)) {
 
-            BigDecimal remaining = amount;
-
-            // Debit from available welcome bonus
-            if (wallet.getAvailableWelcomeBonus().compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal used = wallet.getAvailableWelcomeBonus().min(remaining);
-                wallet.setAvailableWelcomeBonus(wallet.getAvailableWelcomeBonus().subtract(used));
-                wallet.setWelcomeBonus(wallet.getWelcomeBonus().subtract(used));
-                remaining = remaining.subtract(used);
-            }
-
-            // Debit from available referral bonus
-            if (remaining.compareTo(BigDecimal.ZERO) > 0 && wallet.getAvailableReferralBonus().compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal used = wallet.getAvailableReferralBonus().min(remaining);
-                wallet.setAvailableReferralBonus(wallet.getAvailableReferralBonus().subtract(used));
-                wallet.setReferralBonus(wallet.getReferralBonus().subtract(used));
-                remaining = remaining.subtract(used);
-            }
-
-            // Debit from deposit balance
-//            if (remaining.compareTo(BigDecimal.ZERO) > 0 && wallet.getDepositBalance().compareTo(BigDecimal.ZERO) > 0) {
-//                BigDecimal used = wallet.getDepositBalance().min(remaining);
-//                wallet.setDepositBalance(wallet.getDepositBalance().subtract(used));
-//                remaining = remaining.subtract(used);
-//            }
-
-            // debiit from the total available balance
-            if (remaining.compareTo(BigDecimal.ZERO) > 0
-                    && wallet.getTotalAvailableBalance().compareTo(BigDecimal.ZERO) > 0) {
-
-                // Determine how much can be used
-                BigDecimal used = wallet.getTotalAvailableBalance().min(remaining);
-
-                // Deduct from total balance
-                wallet.setTotalAvailableBalance(wallet.getTotalAvailableBalance().subtract(used));
-
-                // Deduct from available-to-withdraw, ensuring it doesn’t go below zero
-                BigDecimal updatedWithdrawable = wallet.getAvailableToWithdraw().subtract(used);
-                if (updatedWithdrawable.compareTo(BigDecimal.ZERO) < 0) {
-                    updatedWithdrawable = BigDecimal.ZERO;
-                }
-                wallet.setAvailableToWithdraw(updatedWithdrawable);
-
-                // Reduce remaining amount to process
-                remaining = remaining.subtract(used);
-            }
-
-
-            // Not enough funds
-            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+            if (wallet.getTotalAvailableBalance().compareTo(amount) < 0) {
                 return Mono.error(new InsufficientBalanceException("Insufficient balance to cover game fee"));
             }
 
-//            // Recalculate derived fields
-//            BigDecimal totalAvailableBalance = wallet.getDepositBalance()
-//                    .add(wallet.getAvailableWelcomeBonus())
-//                    .add(wallet.getAvailableReferralBonus());
-//
-//            // Typically, only deposit balance is withdrawable
-//            BigDecimal availableToWithdraw = wallet.getDepositBalance();
-//
-//            wallet.setTotalAvailableBalance(totalAvailableBalance);
-//            wallet.setAvailableToWithdraw(availableToWithdraw);
+            BigDecimal remaining = amount;
 
-            // Persist and map to DTO
+            // 1️⃣ Track how much comes from each source (for logs/clarity)
+            BigDecimal usedFromWelcome = BigDecimal.ZERO;
+            BigDecimal usedFromReferral = BigDecimal.ZERO;
+
+            // 2️⃣ Debit from available welcome bonus
+            if (wallet.getAvailableWelcomeBonus().compareTo(BigDecimal.ZERO) > 0) {
+                usedFromWelcome = wallet.getAvailableWelcomeBonus().min(remaining);
+                wallet.setAvailableWelcomeBonus(wallet.getAvailableWelcomeBonus().subtract(usedFromWelcome));
+                wallet.setWelcomeBonus(wallet.getWelcomeBonus().subtract(usedFromWelcome));
+                remaining = remaining.subtract(usedFromWelcome);
+            }
+
+            // 3️⃣ Debit from available referral bonus
+            if (remaining.compareTo(BigDecimal.ZERO) > 0 && wallet.getAvailableReferralBonus().compareTo(BigDecimal.ZERO) > 0) {
+                usedFromReferral = wallet.getAvailableReferralBonus().min(remaining);
+                wallet.setAvailableReferralBonus(wallet.getAvailableReferralBonus().subtract(usedFromReferral));
+                wallet.setReferralBonus(wallet.getReferralBonus().subtract(usedFromReferral));
+                remaining = remaining.subtract(usedFromReferral);
+            }
+
+            // 4️⃣ Finally, deduct the full amount from totalAvailableBalance (because it includes all bonuses)
+            wallet.setTotalAvailableBalance(wallet.getTotalAvailableBalance().subtract(amount));
+
+            // 5️⃣ Recalculate availableToWithdraw
+//            wallet.setAvailableToWithdraw(
+//                    wallet.getTotalAvailableBalance()
+//                            .subtract(wallet.getAvailableWelcomeBonus())
+//                            .subtract(wallet.getAvailableReferralBonus())
+//                            .max(BigDecimal.ZERO)
+//            );
+
+            log.info("✅ Debit complete for wallet {} (welcome used: {}, referral used: {}, remaining cash: {})",
+                    wallet.getId(), usedFromWelcome, usedFromReferral, remaining);
+
             return walletRepository.save(wallet)
                     .map(WalletMapper::toDto);
         }
+
 
         // Default case for other transaction types
         return Mono.just(WalletMapper.toDto(wallet));

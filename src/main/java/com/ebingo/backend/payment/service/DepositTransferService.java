@@ -10,13 +10,13 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 
 public interface DepositTransferService {
-    Flux<DepositTransferDto> getPaginatedDepositTransfer(String userSupabaseId, Integer page, Integer size, String sortBy);
+    Flux<DepositTransferDto> getPaginatedDepositTransfer(Long telegramId, Integer page, Integer size, String sortBy);
 
-    Mono<DepositTransferDto> getASingleDepositTransfer(Long id, String userSupabaseId);
+    Mono<DepositTransferDto> getASingleDepositTransfer(Long id, Long telegramId);
 
-    Mono<Void> deleteDepositTransfer(Long id, String userSupabaseId);
+    Mono<Void> deleteDepositTransfer(Long id, Long telegramId);
 
-    Mono<DepositTransferDto> createDepositTransfer(@Valid DepositTransferRequestDto depositTransferDto, String userSupabaseId);
+    Mono<DepositTransferDto> createDepositTransfer(@Valid DepositTransferRequestDto depositTransferDto, Long telegramId);
 
     Mono<Wallet> creditReceiverWalletBalanceForDeposit(Wallet receiverWallet, BigDecimal amount);
 }

@@ -13,27 +13,27 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 
 public interface TransactionService {
-    Flux<TransactionDto> getPaginatedTransaction(String phoneNumber, Integer page, Integer size, String sortBy);
+    Flux<TransactionDto> getPaginatedTransaction(Long telegramId, Integer page, Integer size, String sortBy);
 
-    Mono<TransactionDto> getTransactionById(Long id, String userSupabaseId);
+    Mono<TransactionDto> getTransactionById(Long id, Long telegramId);
 
-    Mono<TransactionDto> initiateOfflineDeposit(InitiateDepositRequest depositRequest, String userSupabaseId);
+    Mono<TransactionDto> initiateOfflineDeposit(InitiateDepositRequest depositRequest, Long telegramId);
 
-    Mono<TransactionDto> confirmDepositOfflineByAdmin(String txnRef, String metaData, String approverSupabaseId);
+    Mono<TransactionDto> confirmDepositOfflineByAdmin(String txnRef, String metaData, Long approverTelegramId);
 
     Flux<TransactionDto> getPaginatedDepositsByStatusForAdmin(TransactionStatus status, TransactionType type, Integer page, Integer size, String sortBy);
 
     Mono<TransactionDto> cancelDepositOffline(Long id);
 
-    Mono<TransactionDto> withdraw(@Valid WithdrawRequestDto withdrawRequestDto, String userSupabaseId);
+    Mono<TransactionDto> withdraw(@Valid WithdrawRequestDto withdrawRequestDto, Long telegramId);
 
-    Mono<TransactionDto> confirmWithdrawalByAdmin(String txnRef, String approverSupabaseId);
+    Mono<TransactionDto> confirmWithdrawalByAdmin(String txnRef, Long telegramId);
 
-    Mono<TransactionDto> rejectWithdrawalByAdmin(String txnRef, String reason, String approverSupabaseId);
+    Mono<TransactionDto> rejectWithdrawalByAdmin(String txnRef, String reason, Long approverTelegramId);
 
     Mono<Wallet> debitReceiverWalletBalanceForDepositReversal(Wallet wallet, BigDecimal amount);
 
-    Mono<TransactionDto> changeTransactionStatus(String txnRef, TransactionStatus status, String approverSupabaseId);
+    Mono<TransactionDto> changeTransactionStatus(String txnRef, TransactionStatus status, Long approverTelegramId);
 
 //    Flux<TransactionDto> getPaginatedTransactionByTypeForAdmin(TransactionType type, Integer page, Integer size, String sortBy);
 }

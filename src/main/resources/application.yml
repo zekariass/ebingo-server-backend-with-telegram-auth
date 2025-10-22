@@ -16,12 +16,24 @@ spring:
   #        jwt:
   #          jwk-set-uri: ${SUPABASE_JWK_ENDPOINT}
 
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      #      password: ${REDIS_PASSWORD}
-      timeout: 10s
+  spring:
+    data:
+      redis:
+        host: ${REDIS_HOST}
+        port: ${REDIS_PORT}
+        # General connection timeout
+        timeout: 5s
+
+        lettuce:
+          # Graceful shutdown of Lettuce to prevent "factory destroyed" errors
+          shutdown-timeout: 100ms
+
+          pool:
+            # Connection pool tuning (important for high concurrency)
+            max-active: 64          # maximum number of connections that can be allocated
+            max-idle: 32             # number of idle connections to keep
+            min-idle: 8             # minimum number of idle connections to maintain
+            max-wait: 5s           # how long to wait for a connection from the pool before failing
 
 server:
   port: 8080
@@ -47,6 +59,6 @@ app:
     allowed-origins:
       - http://localhost:3000
       - http://192.168.0.20:3000
-      - https://eb81de6f85e4.ngrok-free.app
-      - https://471caa3bbe86.ngrok-free.app
+      - https://00164d5a57b1.ngrok-free.app
+      - https://6fb904951050.ngrok-free.app
       - https://ebingo-client-with-telegram-auth.vercel.app

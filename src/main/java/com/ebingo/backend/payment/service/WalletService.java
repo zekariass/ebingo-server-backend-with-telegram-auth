@@ -13,7 +13,7 @@ public interface WalletService {
 
     Mono<WalletDto> getWalletByUserProfileId(Long userProfileId);
 
-    Mono<WalletDto> getWalletBySupabaseId(String userSupabaseId);
+    Mono<WalletDto> getWalletByTelegramId(Long telegramId);
 
     Mono<WalletDto> saveWallet(Wallet wallet);
 

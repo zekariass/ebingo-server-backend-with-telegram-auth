@@ -44,7 +44,7 @@ public class RoomServiceImpl implements RoomService {
         TransactionalOperator operator = TransactionalOperator.create(transactionManager);
         Room room = RoomMapper.toEntity(roomDto);
 
-        return userProfileRepository.getUserProfileBytelegramId(telegramId)
+        return userProfileRepository.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new IllegalStateException("User profile not found for telegramId: " + telegramId)))
                 .flatMap(userProfile -> {
                     room.setCreatedBy(userProfile.getId());

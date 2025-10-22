@@ -6,6 +6,7 @@ import com.ebingo.backend.game.service.CardPoolService;
 import com.ebingo.backend.game.service.CardSelectionService;
 import com.ebingo.backend.game.service.GameService;
 import com.ebingo.backend.game.service.RedisPublisher;
+import com.ebingo.backend.game.service.state.PlayerStateService;
 import com.ebingo.backend.system.redis.RedisKeys;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -49,80 +51,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
     private final GameService gameService;
     private final TelegramAuthVerifier telegramAuthVerifier;
     private final ObjectMapper objectMapper;
+    private final PlayerStateService playerStateService;
 
     private final Map<String, Sinks.Many<WSMessage>> sessionSinks = new ConcurrentHashMap<>();
 
-//    @Override
-//    public Mono<Void> handle(WebSocketSession session) {
-//        log.info("======================>>> New WS connection: {}", session.getId());
-//
-//        // 1️⃣ Extract Authorization header
-//        String authHeader = session.getHandshakeInfo().getHeaders().getFirst("Authorization");
-//        if (authHeader == null || !authHeader.startsWith("tma ")) {
-//            log.warn("WS connection rejected: missing or invalid Authorization header");
-//            return session.close(CloseStatus.BAD_DATA);
-//        }
-//
-//        // 2️⃣ Extract initData
-//        String initData = authHeader.substring(4); // remove "tma "
-//        if (initData.isBlank()) {
-//            log.warn("WS connection rejected: empty initData in Authorization header");
-//            return session.close(CloseStatus.BAD_DATA);
-//        }
-//
-//        log.info("=======================>>> Init data: {}", initData);
-//
-//        log.info("Received initData: {}", initData);
-//
-//        // 3️⃣ Verify Telegram initData
-//        Optional<Map<String, String>> verified = telegramAuthVerifier.verifyInitData(initData);
-//        if (verified.isEmpty()) {
-//            log.warn("Invalid Telegram initData signature");
-//            return session.close(CloseStatus.NOT_ACCEPTABLE);
-//        }
-//
-//        Map<String, String> data = verified.get();
-//        Map<String, Object> user;
-//        // 4️Extract userId and username
-//        try {
-//            user = objectMapper.readValue(data.get("user"), Map.class);
-//        } catch (JsonProcessingException e) {
-//            throw new RuntimeException(e);
-//        }
-//
-//        log.info("============================>>>>User: {}", user);
-//        String userId = String.valueOf(user.get("id"));
-//
-//        if (userId == null) {
-//            log.warn("Missing user identifier (id) in initData");
-//            return session.close(CloseStatus.NOT_ACCEPTABLE);
-//        }
-//
-//        String username = data.getOrDefault("username", "User:" + userId);
-//
-//        // 5️⃣ Extract roomId from query param
-//        MultiValueMap<String, String> params = UriComponentsBuilder
-//                .fromUri(session.getHandshakeInfo().getUri())
-//                .build()
-//                .getQueryParams();
-//
-//        Long roomId = Optional.ofNullable(params.getFirst("roomId"))
-//                .map(Long::valueOf)
-//                .orElse(null);
-//
-//        if (roomId == null) {
-//            log.warn("Missing roomId query param");
-//            return session.close(CloseStatus.BAD_DATA);
-//        }
-//
-//        // 6️⃣ Start the WebSocket session
-//        return startSession(session, userId, username, roomId);
-//    }
-
-
     @Override
     public Mono<Void> handle(WebSocketSession session) {
-        log.info("======================>>> New WS connection: {}", session.getId());
+//        log.info("======================>>> New WS connection: {}", session.getId());
 
         // 1️⃣ Extract query params
         MultiValueMap<String, String> params = UriComponentsBuilder
@@ -144,7 +79,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
             return sendErrorAndClose(session, "Invalid initData format");
         }
 
-        log.info("=======================>>> Decoded initData: {}", initData);
+//        log.info("=======================>>> Decoded initData: {}", initData);
 
         // 3️⃣ Verify Telegram initData
         Optional<Map<String, String>> verified = telegramAuthVerifier.verifyInitData(initData);
@@ -164,7 +99,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
             return sendErrorAndClose(session, "Malformed user data in initData");
         }
 
-        log.info("============================>>>> User: {}", user);
+//        log.info("============================>>>> User: {}", user);
 
         String userId = String.valueOf(user.get("id"));
         if (userId == null) {
@@ -291,16 +226,32 @@ public class GameWebSocketHandler implements WebSocketHandler {
         Map<String, Object> payload = msg.getPayload() != null ? msg.getPayload() : Map.of();
         Integer capacity = (Integer) payload.get("capacity");
 
+//        System.out.println(("============jjj===========>>> CAPACITY: " + capacity));
+
         switch (type) {
             case "room.getGameStateRequest":
+                log.info(">>>>>>>>>>>>>>>>>>>>>>> Getting game state for user {} in room {}", userId, roomId);
                 return gameService.getOrInitializeGame(roomId, userId, capacity)
-                        .flatMap(gs -> publisher.publishUserEvent(userId,
-                                Map.of("type", "room.serverGameState", "payload", Map.of(
-                                        "success", true,
-                                        "error", "",
-                                        "gameState", gs,
-                                        "roomId", roomId
-                                )))).then();
+                        .flatMap(gs -> {
+
+                                    Mono<Set<String>> userSelectedCardsIds = playerStateService.getPlayerCardIds(gs.getGameId(), userId); // Placeholder userId
+
+
+                                    return userSelectedCardsIds
+                                            .flatMap(userCardsIds -> {
+                                                gs.setUserSelectedCardsIds(userCardsIds);
+                                                log.info(">>>>>>>>>>>>>>>>>>>>>>> USER SELECTED CARDS: {}", gs.getUserSelectedCardsIds());
+
+                                                return publisher.publishUserEvent(userId,
+                                                        Map.of("type", "room.serverGameState", "payload", Map.of(
+                                                                "success", true,
+                                                                "error", "",
+                                                                "gameState", gs,
+                                                                "roomId", roomId
+                                                        )));
+                                            }).then();
+                                }
+                        ).then();
 
             case "card.cardSelectRequest":
                 String cardId = (payload.get("cardId") != null) ? payload.get("cardId").toString() : null;
@@ -316,11 +267,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 Long gameEventId3 = (payload.get("gameId") != null) ? Long.valueOf(payload.get("gameId").toString()) : null;
                 BigDecimal fee3 = (payload.get("fee") != null) ? BigDecimal.valueOf(Double.parseDouble(payload.get("fee").toString())) : null;
                 Integer capacity3 = (payload.get("capacity") != null) ? Integer.parseInt(payload.get("capacity").toString()) : 100;
-                return gameService.playerJoin(roomId, gameEventId3, userId, capacity3, fee3).then();
+                String userId3 = (payload.get("playerId") != null) ? payload.get("playerId").toString() : null;
+                return gameService.playerJoin(roomId, gameEventId3, userId3, capacity3, fee3).then();
 
             case "game.playerLeaveRequest":
                 Long gameEventId4 = (payload.get("gameId") != null) ? Long.valueOf(payload.get("gameId").toString()) : null;
-                return gameService.leaveGame(roomId, gameEventId4, userId);
+                String userId4 = (payload.get("playerId") != null) ? payload.get("playerId").toString() : null;
+                return gameService.leaveGame(roomId, gameEventId4, userId4);
 
             case "card.markNumberRequest":
                 Long gameEventId5 = (payload.get("gameId") != null) ? Long.valueOf(payload.get("gameId").toString()) : null;
@@ -332,6 +285,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
             case "game.bingoClaimRequest":
                 return gameService.claimBingo(roomId, userId, payload);
+
             case "ping":
                 return publisher.publishEvent(RedisKeys.roomChannel(roomId),
                         Map.of("type", "pong",

@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 
 public interface PaymentService {
 
-    Mono<Boolean> processPayment(String userId, BigDecimal amount, Long gameId);
+    Mono<Boolean> processPayment(Long telegramId, BigDecimal amount, Long gameId);
 
-    Mono<Boolean> processRefund(String userId, Long gameId);
+    Mono<Boolean> processRefund(Long telegramId, Long gameId);
 }

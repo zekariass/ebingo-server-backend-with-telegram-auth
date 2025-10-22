@@ -13,9 +13,9 @@ public interface GameTransactionService {
 
     Mono<GameTransactionDto> getTransactionByUserIdAndGameId(Long id, Long gameId, GameTxnType gameTxnType);
 
-    Flux<GameTransactionDto> getPaginatedGameTransactions(String userSupabaseId, Integer page, Integer size, String sortBy);
+    Flux<GameTransactionDto> getPaginatedGameTransactions(Long telegramId, Integer page, Integer size, String sortBy);
 
-    Mono<GameTransactionDto> getTransactionById(Long txnId, String userSupabaseId);
+    Mono<GameTransactionDto> getTransactionById(Long txnId, Long telegramId);
 
     Mono<GameTransactionDto> createGameTransactionForPrizePayout(GameState state, Long dbUserId, GameTxnType gameTxnType, Long gameId);
 }

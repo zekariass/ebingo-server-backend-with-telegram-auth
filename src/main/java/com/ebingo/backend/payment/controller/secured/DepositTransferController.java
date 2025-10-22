@@ -28,14 +28,14 @@ public class DepositTransferController {
     @GetMapping
     @Operation(summary = "Get paginated deposit transfers", description = "Get paginated deposit transfers")
     public Mono<ResponseEntity<ApiResponse<List<DepositTransferDto>>>> getPaginatedDepositTransfers(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @RequestParam Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam String sortBy,
             ServerWebExchange exchange
     ) {
 
-        return depositTransferService.getPaginatedDepositTransfer(phoneNumber, page, size, sortBy)
+        return depositTransferService.getPaginatedDepositTransfer(telegramId, page, size, sortBy)
                 .collectList()
                 .map(transfers -> ApiResponse.<List<DepositTransferDto>>builder()
                         .statusCode(HttpStatus.OK.value())
@@ -52,12 +52,12 @@ public class DepositTransferController {
     @GetMapping("/{id}")
     @Operation(summary = "Get a single deposit transfer", description = "Get a single deposit transfer")
     public Mono<ResponseEntity<ApiResponse<DepositTransferDto>>> getASingleDepositTransfer(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @RequestParam Long id,
             ServerWebExchange exchange
     ) {
 
-        return depositTransferService.getASingleDepositTransfer(id, phoneNumber)
+        return depositTransferService.getASingleDepositTransfer(id, telegramId)
                 .map(transfer -> ApiResponse.<DepositTransferDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
@@ -73,12 +73,12 @@ public class DepositTransferController {
     @PostMapping
     @Operation(summary = "Create a deposit transfer", description = "Create a deposit transfer")
     public Mono<ResponseEntity<ApiResponse<DepositTransferDto>>> createDepositTransfer(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @Valid @RequestBody DepositTransferRequestDto depositTransferDto,
             ServerWebExchange exchange
     ) {
 
-        return depositTransferService.createDepositTransfer(depositTransferDto, phoneNumber)
+        return depositTransferService.createDepositTransfer(depositTransferDto, telegramId)
                 .map(transfer -> ApiResponse.<DepositTransferDto>builder()
                         .statusCode(HttpStatus.CREATED.value())
                         .success(true)
@@ -94,12 +94,12 @@ public class DepositTransferController {
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a single deposit transfer", description = "Delete a single deposit transfer")
     public Mono<ResponseEntity<ApiResponse<Void>>> deleteDepositTransfer(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @RequestParam Long id,
             ServerWebExchange exchange
     ) {
 
-        return depositTransferService.deleteDepositTransfer(id, phoneNumber)
+        return depositTransferService.deleteDepositTransfer(id, telegramId)
                 .then(Mono.fromSupplier(() -> ApiResponse.<Void>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)

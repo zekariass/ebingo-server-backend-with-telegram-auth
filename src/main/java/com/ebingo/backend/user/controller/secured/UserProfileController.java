@@ -53,7 +53,7 @@ public class UserProfileController {
             ServerWebExchange exchange
     ) {
         System.out.println("================>>>>>>>>>>>>>>>>>>>>>>>: Fetching user profile for telegramId: " + telegramId);
-        return userProfileService.getUserProfileBytelegramId(telegramId)
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .map(userProfileDto -> ApiResponse.<UserProfileDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)

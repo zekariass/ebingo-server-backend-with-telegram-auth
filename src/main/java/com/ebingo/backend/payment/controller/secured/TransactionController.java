@@ -1,5 +1,6 @@
 package com.ebingo.backend.payment.controller.secured;
 
+import com.ebingo.backend.common.TelegramAuthVerifier;
 import com.ebingo.backend.common.dto.ApiResponse;
 import com.ebingo.backend.payment.dto.InitiateDepositRequest;
 import com.ebingo.backend.payment.dto.TransactionDto;
@@ -7,6 +8,8 @@ import com.ebingo.backend.payment.dto.WithdrawRequestDto;
 import com.ebingo.backend.payment.enums.TransactionStatus;
 import com.ebingo.backend.payment.enums.TransactionType;
 import com.ebingo.backend.payment.service.TransactionService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +23,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @Tag(name = "Transaction Secured Controller", description = "Transaction Secured Controller")
@@ -27,17 +32,89 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TransactionController {
     private final TransactionService transactionService;
+    private final ObjectMapper objectMapper;
+    private final TelegramAuthVerifier telegramAuthVerifier;
 
     @GetMapping
     @Operation(summary = "Get all transactions with pagination", description = "Get all transactions with pagination")
     public Mono<ResponseEntity<ApiResponse<List<TransactionDto>>>> getPaginatedTransactions(
-            @RequestParam String phoneNumber,
             @Parameter(required = true, description = "Page number") @RequestParam Integer page,
             @Parameter(required = false, description = "Page size") @RequestParam(defaultValue = "10") Integer size,
             @Parameter(required = false, description = "Sort by") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestHeader(value = "x-init-data", required = true) String telegramInitData,
             ServerWebExchange exchange
     ) {
-        return transactionService.getPaginatedTransaction(phoneNumber, page, size, sortBy)
+        // ✅ Verify Telegram init data
+        Optional<Map<String, String>> initData = telegramAuthVerifier.verifyInitData(telegramInitData);
+        if (initData.isEmpty()) {
+            return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    ApiResponse.<List<TransactionDto>>builder()
+                            .statusCode(HttpStatus.UNAUTHORIZED.value())
+                            .success(false)
+                            .message("Invalid telegram init data")
+                            .path(exchange.getRequest().getPath().value())
+                            .timestamp(Instant.now())
+                            .build()
+            ));
+        }
+
+        // ✅ Parse user JSON safely
+        Map<String, Object> user;
+        try {
+            String userJson = initData.get().get("user");
+            if (userJson == null) {
+                return Mono.just(ResponseEntity.badRequest().body(
+                        ApiResponse.<List<TransactionDto>>builder()
+                                .statusCode(HttpStatus.BAD_REQUEST.value())
+                                .success(false)
+                                .message("Missing 'user' field in initData")
+                                .path(exchange.getRequest().getPath().value())
+                                .timestamp(Instant.now())
+                                .build()));
+            }
+            user = objectMapper.readValue(userJson, Map.class);
+        } catch (JsonProcessingException e) {
+            return Mono.just(ResponseEntity.badRequest().body(
+                    ApiResponse.<List<TransactionDto>>builder()
+                            .statusCode(HttpStatus.BAD_REQUEST.value())
+                            .success(false)
+                            .message("Invalid user data: " + e.getOriginalMessage())
+                            .path(exchange.getRequest().getPath().value())
+                            .timestamp(Instant.now())
+                            .build()));
+        }
+
+        // ✅ Extract Long user ID safely
+        Object idObj = user.get("id");
+        long userId;
+        try {
+            if (idObj instanceof Number n) {
+                userId = n.longValue();
+            } else if (idObj instanceof String s) {
+                userId = Long.parseLong(s);
+            } else {
+                return Mono.just(ResponseEntity.badRequest().body(
+                        ApiResponse.<List<TransactionDto>>builder()
+                                .statusCode(HttpStatus.BAD_REQUEST.value())
+                                .success(false)
+                                .message("Invalid user ID format")
+                                .path(exchange.getRequest().getPath().value())
+                                .timestamp(Instant.now())
+                                .build()));
+            }
+        } catch (Exception e) {
+            return Mono.just(ResponseEntity.badRequest().body(
+                    ApiResponse.<List<TransactionDto>>builder()
+                            .statusCode(HttpStatus.BAD_REQUEST.value())
+                            .success(false)
+                            .message("Error parsing user ID: " + e.getMessage())
+                            .path(exchange.getRequest().getPath().value())
+                            .timestamp(Instant.now())
+                            .build()));
+        }
+
+        // ✅ Fetch transactions
+        return transactionService.getPaginatedTransaction(userId, page, size, sortBy)
                 .collectList()
                 .map(txns -> ApiResponse.<List<TransactionDto>>builder()
                         .statusCode(HttpStatus.OK.value())
@@ -47,17 +124,26 @@ public class TransactionController {
                         .timestamp(Instant.now())
                         .data(txns)
                         .build())
-                .map(ResponseEntity::ok);
+                .map(ResponseEntity::ok)
+                .onErrorResume(ex -> Mono.just(ResponseEntity.internalServerError().body(
+                        ApiResponse.<List<TransactionDto>>builder()
+                                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                                .success(false)
+                                .message("Internal server error: " + ex.getMessage())
+                                .path(exchange.getRequest().getPath().value())
+                                .timestamp(Instant.now())
+                                .build()
+                )));
     }
 
 
     @GetMapping("/{id}")
     @Operation(summary = "Get transaction by ID", description = "Get transaction by ID")
     public Mono<ResponseEntity<ApiResponse<TransactionDto>>> getTransactionById(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @Parameter(required = true, description = "Transaction ID") @RequestParam Long id,
             ServerWebExchange exchange) {
-        return transactionService.getTransactionById(id, phoneNumber)
+        return transactionService.getTransactionById(id, telegramId)
                 .map(txn -> ApiResponse.<TransactionDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
@@ -75,11 +161,11 @@ public class TransactionController {
     @Operation(summary = "Initiate deposit", description = "Initiate deposit")
     public Mono<ResponseEntity<ApiResponse<TransactionDto>>> initiateDeposit(
             @Parameter(required = true, description = "Amount") @RequestBody InitiateDepositRequest depositRequest,
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             ServerWebExchange exchange
     ) {
 
-        return transactionService.initiateOfflineDeposit(depositRequest, phoneNumber)
+        return transactionService.initiateOfflineDeposit(depositRequest, telegramId)
                 .map(txn -> ApiResponse.<TransactionDto>builder()
                         .statusCode(HttpStatus.CREATED.value())
                         .success(true)
@@ -98,11 +184,11 @@ public class TransactionController {
     public Mono<ResponseEntity<ApiResponse<TransactionDto>>> confirmDepositOfflineByAdmin(
             @Parameter(required = true, description = "txnRef") @RequestParam String txnRef,
             @Parameter(required = false, description = "metaData") @RequestBody String metaData,
-            @RequestParam String approverPhoneNumber,
+            @RequestParam Long approverTelegramId,
             ServerWebExchange exchange
     ) {
 
-        return transactionService.confirmDepositOfflineByAdmin(txnRef, metaData, approverPhoneNumber)
+        return transactionService.confirmDepositOfflineByAdmin(txnRef, metaData, approverTelegramId)
                 .map(txn -> ApiResponse.<TransactionDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
@@ -164,11 +250,11 @@ public class TransactionController {
     @PostMapping("/withdraw")
     @Operation(summary = "Withdraw", description = "Withdraw")
     public Mono<ResponseEntity<ApiResponse<TransactionDto>>> withdraw(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @Valid @RequestBody WithdrawRequestDto withdrawRequestDto,
             ServerWebExchange exchange) {
 
-        return transactionService.withdraw(withdrawRequestDto, phoneNumber)
+        return transactionService.withdraw(withdrawRequestDto, telegramId)
                 .map(txn -> ApiResponse.<TransactionDto>builder()
                         .statusCode(HttpStatus.CREATED.value())
                         .success(true)
@@ -185,10 +271,10 @@ public class TransactionController {
     @Operation(summary = "Approve Withdrawal", description = "Admin approves a pending withdrawal")
     public Mono<ResponseEntity<ApiResponse<TransactionDto>>> approveWithdrawal(
             @RequestParam String txnRef,
-            @RequestParam String approverPhoneNumber,
+            @RequestParam Long approverTelegramId,
             ServerWebExchange exchange) {
 
-        return transactionService.confirmWithdrawalByAdmin(txnRef, approverPhoneNumber)
+        return transactionService.confirmWithdrawalByAdmin(txnRef, approverTelegramId)
                 .map(txn -> ApiResponse.<TransactionDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
@@ -206,10 +292,10 @@ public class TransactionController {
     public Mono<ResponseEntity<ApiResponse<TransactionDto>>> rejectWithdrawal(
             @RequestParam String txnRef,
             @RequestParam(required = false) String reason,
-            @RequestParam String approverPhoneNumber,
+            @RequestParam Long approverTelegramId,
             ServerWebExchange exchange) {
 
-        return transactionService.rejectWithdrawalByAdmin(txnRef, reason, approverPhoneNumber)
+        return transactionService.rejectWithdrawalByAdmin(txnRef, reason, approverTelegramId)
                 .map(txn -> ApiResponse.<TransactionDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
@@ -225,12 +311,12 @@ public class TransactionController {
     @PatchMapping("/{txnRef}/change-status")
     @Operation(summary = "Change Transaction status", description = "Change Transaction status")
     public Mono<ResponseEntity<ApiResponse<TransactionDto>>> changeStatus(
-            @RequestParam String approverPhoneNumber,
+            @RequestParam Long approverTelegramId,
             @PathVariable String txnRef,
             @RequestParam TransactionStatus status,
             ServerWebExchange exchange) {
 
-        return transactionService.changeTransactionStatus(txnRef, status, approverPhoneNumber)
+        return transactionService.changeTransactionStatus(txnRef, status, approverTelegramId)
                 .map(txn -> ApiResponse.<TransactionDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)

@@ -28,8 +28,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public Mono<Boolean> processPayment(String phoneNumberAsUserId, BigDecimal amount, Long gameId) {
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumberAsUserId)
+    public Mono<Boolean> processPayment(Long telegramId, BigDecimal amount, Long gameId) {
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMap(userProfile ->
                         walletRepository.findByUserProfileId(userProfile.getId())
@@ -53,8 +53,8 @@ public class PaymentServiceImpl implements PaymentService {
 
 
     @Override
-    public Mono<Boolean> processRefund(String phoneNumberAsUserId, Long gameId) {
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumberAsUserId)
+    public Mono<Boolean> processRefund(Long telegramId, Long gameId) {
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMap(userProfile ->
                         gameTxnService.getTransactionByUserIdAndGameId(userProfile.getId(), gameId, GameTxnType.GAME_FEE)

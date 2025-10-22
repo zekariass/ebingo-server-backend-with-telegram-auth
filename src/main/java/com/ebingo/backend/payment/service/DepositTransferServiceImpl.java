@@ -34,13 +34,13 @@ public class DepositTransferServiceImpl implements DepositTransferService {
 
 
     @Override
-    public Flux<DepositTransferDto> getPaginatedDepositTransfer(String phoneNumber, Integer page, Integer size, String sortBy) {
+    public Flux<DepositTransferDto> getPaginatedDepositTransfer(Long telegramId, Integer page, Integer size, String sortBy) {
 
         int pageNumber = (page != null && page >= 0) ? page : 0;
         int pageSize = (size != null && size > 0 && size <= 100) ? size : 10;
         long offset = (long) pageNumber * pageSize;
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMapMany(up -> {
                     String sortKey = (sortBy != null) ? sortBy.toLowerCase() : "id";
@@ -55,13 +55,13 @@ public class DepositTransferServiceImpl implements DepositTransferService {
                 })
                 .map(DepositTransferMapper::toDto)
                 .doOnSubscribe(s -> log.info("Fetching deposit transfers - Page: {}, Size: {}, SortBy: {}", page, size, sortBy))
-                .doOnComplete(() -> log.info("Completed fetching deposit transfers for user: {}", phoneNumber))
+                .doOnComplete(() -> log.info("Completed fetching deposit transfers for user: {}", telegramId))
                 .doOnError(e -> log.error("Failed to fetch deposit transfers: {}", e.getMessage(), e));
     }
 
     @Override
-    public Mono<DepositTransferDto> getASingleDepositTransfer(Long id, String phoneNumber) {
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+    public Mono<DepositTransferDto> getASingleDepositTransfer(Long id, Long telegramId) {
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMap(up ->
                         depositTransferRepository.findByIdAndSenderId(id, up.getId())
@@ -75,9 +75,9 @@ public class DepositTransferServiceImpl implements DepositTransferService {
 
 
     @Override
-    public Mono<Void> deleteDepositTransfer(Long id, String phoneNumber) {
+    public Mono<Void> deleteDepositTransfer(Long id, Long telegramId) {
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMap(userProfile ->
                         depositTransferRepository.findByIdAndSenderId(id, userProfile.getId())
@@ -93,13 +93,13 @@ public class DepositTransferServiceImpl implements DepositTransferService {
     @Override
     public Mono<DepositTransferDto> createDepositTransfer(
             DepositTransferRequestDto depositTransferDto,
-            String phoneNumber
+            Long telegramId
     ) {
         log.info("Initiating deposit transfer: {}", depositTransferDto);
 
         BigDecimal amount = depositTransferDto.getAmount();
 
-        Mono<DepositTransferDto> transferMono = userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        Mono<DepositTransferDto> transferMono = userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Sender profile not found")))
                 .flatMap(senderProfile ->
                         // Get or create sender wallet
@@ -151,7 +151,7 @@ public class DepositTransferServiceImpl implements DepositTransferService {
 
         // Execute in reactive transaction
         return this.transactionalOperator.transactional(transferMono)
-                .doOnSubscribe(s -> log.info("Starting deposit transfer for Supabase user: {}", phoneNumber))
+                .doOnSubscribe(s -> log.info("Starting deposit transfer for Supabase user: {}", telegramId))
                 .doOnSuccess(dto -> log.info("Deposit transfer completed successfully: {}", dto))
                 .doOnError(e -> log.error("Failed to complete deposit transfer: {}", e.getMessage(), e));
     }

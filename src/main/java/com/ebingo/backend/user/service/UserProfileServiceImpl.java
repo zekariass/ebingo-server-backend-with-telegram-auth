@@ -67,7 +67,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     @Override
-    public Mono<UserProfileDto> getUserProfileBytelegramId(Long telegramId) {
+    public Mono<UserProfileDto> getUserProfileByTelegramId(Long telegramId) {
         return userProfileRepository.findByTelegramId(telegramId)
                 .map(UserProfileMapper::toDto)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User not found")))

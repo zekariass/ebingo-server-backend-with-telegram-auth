@@ -16,5 +16,6 @@ public interface UserProfileService {
 
     Mono<UserProfileDto> getUserByPhoneNumber(@NotNull(message = "Email id is required") String email);
 
-    Mono<UserProfileDto> getUserProfileBytelegramId(Long telegramId);
+    Mono<UserProfileDto> getUserProfileByTelegramId(Long telegramId);
+
 }

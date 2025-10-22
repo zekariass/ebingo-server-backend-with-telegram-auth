@@ -184,6 +184,7 @@ CREATE TABLE wallet (
     total_withdrawal NUMERIC(18,2) DEFAULT 0.00 NOT NULL,
     total_available_balance NUMERIC(18,2) DEFAULT 0.00 NOT NULL,
     available_to_withdraw NUMERIC(18,2) DEFAULT 0.00 NOT NULL,
+    created_by BIGINT,
     updated_by BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

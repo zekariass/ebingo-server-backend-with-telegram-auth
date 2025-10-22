@@ -29,13 +29,13 @@ public class BingoClaimController {
     @GetMapping
     @Operation(summary = "Get paginated bingo claims", description = "Get paginated bingo claims")
     public Mono<ResponseEntity<ApiResponse<List<BingoClaimDto>>>> getPaginatedBingoClaims(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @RequestParam Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam String sortBy,
             ServerWebExchange exchange
     ) {
-        return bingoClaimService.getPaginatedBingoClaim(phoneNumber, page, size, sortBy)
+        return bingoClaimService.getPaginatedBingoClaim(telegramId, page, size, sortBy)
                 .collectList()
                 .map(claims -> ApiResponse.<List<BingoClaimDto>>builder()
                         .statusCode(HttpStatus.OK.value())
@@ -52,11 +52,11 @@ public class BingoClaimController {
     @GetMapping("/{id}")
     @Operation(summary = "Get bingo claim by id", description = "Get bingo claim by id")
     public Mono<ResponseEntity<ApiResponse<BingoClaimDto>>> getBingoClaimById(
-            @RequestParam String phoneNumber,
+            @RequestParam Long telegramId,
             @RequestParam Long id,
             ServerWebExchange exchange
     ) {
-        return bingoClaimService.getBingoClaimById(phoneNumber, id)
+        return bingoClaimService.getBingoClaimById(telegramId, id)
                 .map(claim -> ApiResponse.<BingoClaimDto>builder()
                         .statusCode(HttpStatus.OK.value())
                         .success(true)

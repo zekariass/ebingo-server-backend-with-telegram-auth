@@ -63,8 +63,10 @@ public class GameStateService {
                     if (exists) {
                         return getGameState(roomId)
                                 .flatMap(gs -> {
-                                    log.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Game {} found in Redis. {}", gs, gs.getStatus().name());
                                     if (gs.isEnded() || gs.getStatus().equals(GameStatus.COMPLETED)) {
+                                        return deleteGameState(roomId)
+                                                .then(initializeGameWithLock(roomId, userId, capacity));
+                                    } else if ((gs.getStatus().equals(GameStatus.PLAYING) || gs.getStatus().equals(GameStatus.COUNTDOWN)) && gs.getStatusUpdatedAt().isBefore(Instant.now().minus(Duration.ofMinutes(4)))) {
                                         return deleteGameState(roomId)
                                                 .then(initializeGameWithLock(roomId, userId, capacity));
                                     }
@@ -227,6 +229,7 @@ public class GameStateService {
         gameState.setStopNumberDrawing(false);
         gameState.setClaimRequested(false);
         gameState.setCountdownEndTime(null);
+        gameState.setStatusUpdatedAt(Instant.now());
 
 
         gameState.setDrawnNumber(new LinkedHashSet<>());
@@ -236,11 +239,6 @@ public class GameStateService {
         gameState.setAllCardIds(Set.of());
         gameState.setAllSelectedCardsIds(Set.of());
 
-//        return Mono.when(
-//                        cardPoolService.generateAndStoreCurrentPool(roomId, capacity)
-//                )
-//                .then(Mono.just(gameState));
-
         return Mono.zip(
                 cardPoolService.generateAndStoreCurrentPool(roomId, capacity),
                 systemConfigService.getSystemConfig("COMMISSION_RATE"),
@@ -249,6 +247,7 @@ public class GameStateService {
             var commissionConfig = tuple.getT2();
             log.info("===============_______========________Commission rate: {}", commissionConfig);
             log.info("===============_______========________ROOM: {}", tuple.getT3());
+            gameState.setCurrentCardPool(tuple.getT1());
             gameState.setCommissionRate(
                     Double.parseDouble(commissionConfig.getValue())
             );
@@ -290,6 +289,7 @@ public class GameStateService {
         gameData.put("entryFee", String.valueOf(gameState.getEntryFee()));
         gameData.put("commissionRate", String.valueOf(gameState.getCommissionRate()));
         gameData.put("capacity", String.valueOf(gameState.getCapacity()));
+        gameData.put("statusUpdatedAt", gameState.getStatusUpdatedAt().toString());
 
         // Add countdownEndTime only if present
         if (countdownEndTime != null) {
@@ -451,6 +451,15 @@ public class GameStateService {
                     state.setCommissionRate(gameMeta.get("commissionRate") != null ? Double.parseDouble(gameMeta.get("commissionRate").toString()) : 0.0);
                     state.setCapacity(gameMeta.get("capacity") != null ? Integer.parseInt(gameMeta.get("capacity").toString()) : 0);
 
+                    Object statusUpdatedAtRaw = gameMeta.get("statusUpdatedAt");
+                    if (statusUpdatedAtRaw != null) {
+                        state.setStatusUpdatedAt(Instant.parse(statusUpdatedAtRaw.toString()));
+                    } else {
+                        log.warn("Missing statusUpdatedAt in gameMeta for game {}", state.getGameId());
+                        state.setStatusUpdatedAt(Instant.now());
+                        saveGameStateToRedis(state, roomId).subscribe(null, err -> log.error("Failed to save default statusUpdatedAt for game {}: {}", state.getGameId(), err.getMessage()));
+                    }
+
                     Object countdownRaw = gameMeta.get("countdownEndTime");
                     if (countdownRaw != null) {
                         state.setCountdownEndTime(Instant.parse(countdownRaw.toString()));
@@ -469,8 +478,8 @@ public class GameStateService {
                     Mono<Set<String>> allCardIds = cardPoolService.getAllCardIds(roomId)
                             .defaultIfEmpty(Set.of());
 
-//                    Mono<Set<String>> userSelectedCardsIds = playerStateService.getPlayerCardIds(state.getGameId(), ""); // Placeholder userId
                     Mono<Set<String>> allSelectedCardsIds = playerStateService.getAllSelectedCardsIds(state.getGameId());
+//                    Mono<Set<String>> userSelectedCardsIds = playerStateService.getPlayerCardIds(state.getGameId(), ""); // Placeholder userId
 
                     // Zip everything and apply reactive setters
                     return Mono.zip(drawnNumbers, players, disqualified, currentCardPool, allCardIds, allSelectedCardsIds)
@@ -498,10 +507,12 @@ public class GameStateService {
                                                             state.setAllCardIds(tuple.getT5());
                                                         }
 
+                                                        state.setCurrentCardPool(tuple.getT4());
+
                                                         state.setAllSelectedCardsIds(tuple.getT6());
 
 
-                                                        state.setUserSelectedCardsIds(tuple.getT6());
+//                                                        state.setUserSelectedCardsIds(tuple.getT7());
                                                         return state;
                                                     }))
                             );

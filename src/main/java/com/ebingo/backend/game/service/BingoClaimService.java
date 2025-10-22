@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 public interface BingoClaimService {
     Mono<BingoClaimDto> createBingoClaim(BingoClaimDto bingoClaim);
 
-    Flux<BingoClaimDto> getPaginatedBingoClaim(String phoneNumber, Integer page, Integer size, String sortBy);
+    Flux<BingoClaimDto> getPaginatedBingoClaim(Long phoneNumber, Integer page, Integer size, String sortBy);
 
-    Mono<BingoClaimDto> getBingoClaimById(String userSupabaseId, Long id);
+    Mono<BingoClaimDto> getBingoClaimById(Long telegramId, Long id);
 }

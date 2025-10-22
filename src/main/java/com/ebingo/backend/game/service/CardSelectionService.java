@@ -122,7 +122,8 @@ public class CardSelectionService {
                                                     .then(playerStateService.addToAllPlayersSelectedCardsIds(gameId, cardId)
                                                             .doOnSuccess(v -> log.info("Added cardId {} to all players' selected cards in game {}", cardId, gameId))))
                                             .then(cardPoolService.addSelectedCard(gameId, cardId))
-                                            .flatMap(selectedCards -> publishSuccess(roomId, cardId, userId, selectedCards));
+                                            .flatMap(selectedCards -> publishSuccess(roomId, cardId, userId, selectedCards))
+                                            .doFinally(s -> log.info("Completed card claim process for user {} card {} in room {}", userId, cardId, roomId));
 
                                     case "CARD_TAKEN" ->
                                             publishCardError(roomId, userId, cardId, "Card is already taken", "CARD_TAKEN");

@@ -42,6 +42,7 @@ public class GameState {
     private volatile boolean started = false;       // only one writer -> fine as volatile
     private volatile boolean ended = false;
     private volatile GameStatus status = GameStatus.READY;
+    private Instant statusUpdatedAt;
 
     private Boolean stopNumberDrawing = false;
     private Boolean claimRequested = false;
@@ -55,12 +56,6 @@ public class GameState {
         joinedPlayers.clear();
         joinedPlayers.addAll(userIds);
     }
-
-//    public void setAllCardIds(Set<String> cardIds) {
-//        allCardIds.clear();
-//        allCardIds.addAll(cardIds);
-//    }
-
 
     public void setDrawnNumber(LinkedHashSet<Integer> nums) {
         drawnNumbers.clear();

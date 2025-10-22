@@ -28,12 +28,12 @@ public class BingoClaimServiceImpl implements BingoClaimService {
     }
 
     @Override
-    public Flux<BingoClaimDto> getPaginatedBingoClaim(String phoneNumber, Integer page, Integer size, String sortBy) {
+    public Flux<BingoClaimDto> getPaginatedBingoClaim(Long telegramId, Integer page, Integer size, String sortBy) {
         int pageNumber = (page != null && page >= 0) ? page : 0;
         int pageSize = (size != null && size > 0 && size <= 100) ? size : 10;
         long offset = (long) pageNumber * pageSize;
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMapMany(up -> {
                     String sortKey = (sortBy != null) ? sortBy.toLowerCase() : "id";
@@ -51,8 +51,8 @@ public class BingoClaimServiceImpl implements BingoClaimService {
     }
 
     @Override
-    public Mono<BingoClaimDto> getBingoClaimById(String phoneNumber, Long id) {
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+    public Mono<BingoClaimDto> getBingoClaimById(Long telegramId, Long id) {
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMap(up -> bingoClaimRepository.findByIdAndPlayerId(id, up.getId()))
                 .map(BingoClaimMapper::toDto)

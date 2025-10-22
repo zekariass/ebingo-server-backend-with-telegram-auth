@@ -43,12 +43,12 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public Flux<TransactionDto> getPaginatedTransaction(String phoneNumber, Integer page, Integer size, String sortBy) {
+    public Flux<TransactionDto> getPaginatedTransaction(Long telegramId, Integer page, Integer size, String sortBy) {
         int pageNumber = (page != null && page >= 1) ? page : 1;
         int pageSize = (size != null && size > 0 && size <= 100) ? size : 10;
         long offset = (long) (pageNumber - 1) * pageSize;
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMapMany(up -> {
                     String sortKey = (sortBy != null) ? sortBy.toLowerCase() : "id";
@@ -63,16 +63,16 @@ public class TransactionServiceImpl implements TransactionService {
                 })
                 .map(TransactionMapper::toDto)
                 .doOnSubscribe(s -> log.info("Fetching transactions - Page: {}, Size: {}, SortBy: {}", page, size, sortBy))
-                .doOnComplete(() -> log.info("Completed fetching transactions for user: {}", phoneNumber))
+                .doOnComplete(() -> log.info("Completed fetching transactions for user: {}", telegramId))
                 .doOnError(e -> log.error("Failed to fetch transactions: {}", e.getMessage(), e));
     }
 
 
     @Override
-    public Mono<TransactionDto> getTransactionById(Long id, String phoneNumber) {
+    public Mono<TransactionDto> getTransactionById(Long id, Long phoneNumber) {
         log.info("Fetching transaction by ID: {}", id);
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        return userProfileService.getUserProfileByTelegramId(phoneNumber)
                 .flatMap(up ->
                         transactionRepository.findByIdAndPlayerId(id, up.getId())
                                 .switchIfEmpty(Mono.error(
@@ -84,10 +84,10 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public Mono<TransactionDto> initiateOfflineDeposit(InitiateDepositRequest depositRequest, String phoneNumber) {
+    public Mono<TransactionDto> initiateOfflineDeposit(InitiateDepositRequest depositRequest, Long phoneNumber) {
         log.info("Initiating deposit: {}", depositRequest);
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        return userProfileService.getUserProfileByTelegramId(phoneNumber)
                 .flatMap(up -> {
                     Transaction txn = TransactionMapper.toEntity(depositRequest, up);
                     txn.setTxnRef(generateTxnRef());
@@ -143,10 +143,10 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public Mono<TransactionDto> confirmDepositOfflineByAdmin(
-            String txnRef, String metaData, String phoneNumber) {
+            String txnRef, String metaData, Long phoneNumber) {
 
         // Get approver info
-        Mono<UserProfileDto> approverMono = userProfileService.getUserProfileByPhoneNumber(phoneNumber);
+        Mono<UserProfileDto> approverMono = userProfileService.getUserProfileByTelegramId(phoneNumber);
 
         // Wrap the whole flow in transactional operator
         return transactionalOperator.transactional(
@@ -227,10 +227,10 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public Mono<TransactionDto> withdraw(WithdrawRequestDto withdrawRequestDto, String phoneNumber) {
-        log.info("Initiating withdrawal for user: {}, amount: {}", phoneNumber, withdrawRequestDto.getAmount());
+    public Mono<TransactionDto> withdraw(WithdrawRequestDto withdrawRequestDto, Long telegramId) {
+        log.info("Initiating withdrawal for user: {}, amount: {}", telegramId, withdrawRequestDto.getAmount());
 
-        Mono<TransactionDto> withdrawMono = userProfileService.getUserProfileByPhoneNumber(phoneNumber)
+        Mono<TransactionDto> withdrawMono = userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMap(userProfileDto ->
                         walletService.getWalletByUserProfileId(userProfileDto.getId())
@@ -285,10 +285,10 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public Mono<TransactionDto> confirmWithdrawalByAdmin(String txnRef, String approverPhoneNumber) {
+    public Mono<TransactionDto> confirmWithdrawalByAdmin(String txnRef, Long approverPhoneNumber) {
         log.info("Admin confirming withdrawal for txnRef: {}", txnRef);
 
-        Mono<UserProfileDto> approver = userProfileService.getUserProfileByPhoneNumber(approverPhoneNumber);
+        Mono<UserProfileDto> approver = userProfileService.getUserProfileByTelegramId(approverPhoneNumber);
 
         Mono<TransactionDto> txMono = transactionRepository.findByTxnRef(txnRef)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Transaction not found")))
@@ -349,10 +349,10 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public Mono<TransactionDto> rejectWithdrawalByAdmin(String txnRef, String reason, String approverPhoneNumber) {
+    public Mono<TransactionDto> rejectWithdrawalByAdmin(String txnRef, String reason, Long approverPhoneNumber) {
         log.info("Admin rejecting withdrawal for txnRef: {}", txnRef);
 
-        Mono<UserProfileDto> approver = userProfileService.getUserProfileByPhoneNumber(approverPhoneNumber);
+        Mono<UserProfileDto> approver = userProfileService.getUserProfileByTelegramId(approverPhoneNumber);
 
         Mono<TransactionDto> txMono = transactionRepository.findByTxnRef(txnRef)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Transaction not found")))
@@ -451,7 +451,7 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public Mono<TransactionDto> changeTransactionStatus(String txnRef, TransactionStatus status, String approverPhoneNumber) {
+    public Mono<TransactionDto> changeTransactionStatus(String txnRef, TransactionStatus status, Long approverTelegramId) {
         return transactionRepository.findByTxnRef(txnRef)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Transaction not found")))
                 .flatMap(txn -> {
@@ -460,13 +460,13 @@ public class TransactionServiceImpl implements TransactionService {
                         txn.setApprovedAt(Instant.now());
 
                         if (txn.getTxnType() == TransactionType.WITHDRAWAL) {
-                            return confirmWithdrawalByAdmin(txnRef, approverPhoneNumber);
+                            return confirmWithdrawalByAdmin(txnRef, approverTelegramId);
                         } else if (txn.getTxnType() == TransactionType.DEPOSIT) {
-                            return confirmDepositOfflineByAdmin(txnRef, txn.getMetaData(), approverPhoneNumber);
+                            return confirmDepositOfflineByAdmin(txnRef, txn.getMetaData(), approverTelegramId);
                         }
 
                     } else if (status == TransactionStatus.REJECTED && txn.getTxnType() == TransactionType.WITHDRAWAL) {
-                        return rejectWithdrawalByAdmin(txnRef, "Rejected by admin", approverPhoneNumber);
+                        return rejectWithdrawalByAdmin(txnRef, "Rejected by admin", approverTelegramId);
                     } else if (status == TransactionStatus.CANCELLED && txn.getTxnType() == TransactionType.DEPOSIT) {
                         return cancelDepositOffline(txn.getId());
                     }

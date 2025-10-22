@@ -99,12 +99,12 @@ public class GameTransactionServiceImpl implements GameTransactionService {
     }
 
     @Override
-    public Flux<GameTransactionDto> getPaginatedGameTransactions(String phoneNUmber, Integer page, Integer size, String sortBy) {
+    public Flux<GameTransactionDto> getPaginatedGameTransactions(Long telegramId, Integer page, Integer size, String sortBy) {
         int pageNumber = (page != null && page >= 1) ? page : 1;
         int pageSize = (size != null && size > 0 && size <= 100) ? size : 10;
         long offset = (long) (pageNumber - 1) * pageSize;
 
-        return userProfileService.getUserProfileByPhoneNumber(phoneNUmber)
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMapMany(up -> {
                     String sortKey = (sortBy != null) ? sortBy.toLowerCase() : "id";
@@ -119,13 +119,13 @@ public class GameTransactionServiceImpl implements GameTransactionService {
                 })
                 .map(GameTransactionMapper::toDto)
                 .doOnSubscribe(s -> log.info("Fetching game transactions - Page: {}, Size: {}, SortBy: {}", page, size, sortBy))
-                .doOnComplete(() -> log.info("Completed fetching game transactions for user: {}", phoneNUmber))
+                .doOnComplete(() -> log.info("Completed fetching game transactions for user: {}", telegramId))
                 .doOnError(e -> log.error("Failed to fetch game transactions: {}", e.getMessage(), e));
     }
 
     @Override
-    public Mono<GameTransactionDto> getTransactionById(Long txnId, String phoneNUmber) {
-        return userProfileService.getUserProfileByPhoneNumber(phoneNUmber)
+    public Mono<GameTransactionDto> getTransactionById(Long txnId, Long telegramId) {
+        return userProfileService.getUserProfileByTelegramId(telegramId)
                 .flatMap(up ->
                         gameTransactionRepository.findByIdAndPlayerId(txnId, up.getId())
                                 .switchIfEmpty(Mono.error(
