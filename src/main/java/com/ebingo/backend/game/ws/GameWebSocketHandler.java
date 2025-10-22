@@ -230,7 +230,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         switch (type) {
             case "room.getGameStateRequest":
-                log.info(">>>>>>>>>>>>>>>>>>>>>>> Getting game state for user {} in room {}", userId, roomId);
+                log.info("Getting game state for user {} in room {}", userId, roomId);
                 return gameService.getOrInitializeGame(roomId, userId, capacity)
                         .flatMap(gs -> {
 
@@ -240,7 +240,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
                                     return userSelectedCardsIds
                                             .flatMap(userCardsIds -> {
                                                 gs.setUserSelectedCardsIds(userCardsIds);
-                                                log.info(">>>>>>>>>>>>>>>>>>>>>>> USER SELECTED CARDS: {}", gs.getUserSelectedCardsIds());
 
                                                 return publisher.publishUserEvent(userId,
                                                         Map.of("type", "room.serverGameState", "payload", Map.of(

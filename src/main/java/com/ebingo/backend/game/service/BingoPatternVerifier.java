@@ -265,8 +265,6 @@
 //    }
 //}
 //=========================================================================================
-
-
 package com.ebingo.backend.game.service;
 
 import com.ebingo.backend.game.enums.BingoColumn;
@@ -279,9 +277,33 @@ import java.util.stream.Collectors;
 public class BingoPatternVerifier {
 
     /**
+     * Checks if each column's numbers are within the valid Bingo range.
+     * Returns false if any number is out of range (excluding free space 0).
+     */
+    private boolean isValidCard(Map<BingoColumn, List<Integer>> card) {
+        Map<BingoColumn, int[]> ranges = Map.of(
+                BingoColumn.B, new int[]{1, 15},
+                BingoColumn.I, new int[]{16, 30},
+                BingoColumn.N, new int[]{31, 45},
+                BingoColumn.G, new int[]{46, 60},
+                BingoColumn.O, new int[]{61, 75}
+        );
+
+        for (Map.Entry<BingoColumn, List<Integer>> entry : card.entrySet()) {
+            BingoColumn col = entry.getKey();
+            int[] range = ranges.get(col);
+
+            for (Integer num : entry.getValue()) {
+                if (num == null || num == 0) continue; // free space allowed
+                if (num < range[0] || num > range[1]) return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Converts a bingo card map into a 5x5 grid.
-     * - Inserts free space (0) in the center of the N column.
-     * - Pads columns with nulls if fewer than 5 numbers.
+     * Inserts free space (0) at the center of the N column if missing.
      */
     private List<List<Integer>> toGrid(Map<BingoColumn, List<Integer>> card) {
         List<List<Integer>> grid = new ArrayList<>();
@@ -292,33 +314,28 @@ public class BingoPatternVerifier {
         for (BingoColumn col : orderedColumns) {
             List<Integer> numbers = new ArrayList<>(card.get(col));
 
-            if (col == BingoColumn.N) {
-                // Insert free space at center row
-                numbers.add(2, 0);
+            if (col == BingoColumn.N && !numbers.contains(0)) {
+                numbers.add(2, 0); // insert free space at center
             }
 
-            // Pad column to 5 elements with nulls if needed
-            while (numbers.size() < 5) numbers.add(null);
+            while (numbers.size() < 5) numbers.add(null); // pad with nulls
 
             for (int row = 0; row < 5; row++) {
                 grid.get(row).add(numbers.get(row));
             }
         }
 
-        // Double safety: ensure center cell is free space
-        grid.get(2).set(2, 0);
+        grid.get(2).set(2, 0); // ensure center cell is free space
 
         return grid;
     }
 
     /**
-     * Checks if all elements in subset are marked.
-     * Free space (0) is always counted.
-     * Ignores nulls.
+     * Checks if all numbers in subset are contained in marked set, considering free space.
      */
     private boolean containsAll(Collection<Integer> subset, Set<Integer> marked) {
         Set<Integer> effectiveMarked = new HashSet<>(marked);
-        effectiveMarked.add(0); // free space is always marked
+        effectiveMarked.add(0); // free space always counted
 
         for (Integer n : subset) {
             if (n == null) continue;
@@ -332,6 +349,7 @@ public class BingoPatternVerifier {
     // -------------------------
 
     public boolean verifyFullHouse(Map<BingoColumn, List<Integer>> card, Set<Integer> marked) {
+        if (!isValidCard(card)) return false;
         List<List<Integer>> grid = toGrid(card);
         List<Integer> allNumbers = grid.stream()
                 .flatMap(List::stream)
@@ -341,14 +359,16 @@ public class BingoPatternVerifier {
     }
 
     public boolean verifyAnyRow(Map<BingoColumn, List<Integer>> card, Set<Integer> marked) {
+        if (!isValidCard(card)) return false;
         List<List<Integer>> grid = toGrid(card);
         return grid.stream().anyMatch(row -> containsAll(row, marked));
     }
 
     public boolean verifyAnyColumn(Map<BingoColumn, List<Integer>> card, Set<Integer> marked) {
+        if (!isValidCard(card)) return false;
         List<List<Integer>> grid = toGrid(card);
         for (int col = 0; col < 5; col++) {
-            final int finalCol = col; // lambda needs effectively final
+            final int finalCol = col;
             List<Integer> column = grid.stream()
                     .map(row -> row.get(finalCol))
                     .collect(Collectors.toList());
@@ -358,6 +378,7 @@ public class BingoPatternVerifier {
     }
 
     public boolean verifyDiagonal(Map<BingoColumn, List<Integer>> card, Set<Integer> marked) {
+        if (!isValidCard(card)) return false;
         List<List<Integer>> grid = toGrid(card);
 
         List<Integer> mainDiag = new ArrayList<>();
@@ -372,6 +393,7 @@ public class BingoPatternVerifier {
     }
 
     public boolean verifyFourCorners(Map<BingoColumn, List<Integer>> card, Set<Integer> marked) {
+        if (!isValidCard(card)) return false;
         List<List<Integer>> grid = toGrid(card);
         List<Integer> corners = Arrays.asList(
                 grid.get(0).get(0),
@@ -395,11 +417,15 @@ public class BingoPatternVerifier {
     }
 
     // -------------------------
-    // Pattern selector
+    // Pattern selector with debug logging
     // -------------------------
 
     public boolean verifyPattern(Map<BingoColumn, List<Integer>> card, Set<Integer> marked, String pattern) {
-        return switch (pattern.toUpperCase()) {
+        System.out.println("=======================PATTERN===============================>>>>>: Verifying pattern " + pattern);
+        System.out.println("=======================CARD===============================>>>>>: Card " + card);
+        System.out.println("=======================MARKED===============================>>>>>: Marked " + marked);
+
+        boolean result = switch (pattern.toUpperCase()) {
             case "FULL_HOUSE" -> verifyFullHouse(card, marked);
             case "ROW" -> verifyAnyRow(card, marked);
             case "COLUMN" -> verifyAnyColumn(card, marked);
@@ -407,8 +433,13 @@ public class BingoPatternVerifier {
             case "CORNERS" -> verifyFourCorners(card, marked);
             case "LINE" -> verifyLine(card, marked);
             case "LINE_AND_CORNERS" -> verifyLineOrFourCorners(card, marked);
-            default -> throw new IllegalArgumentException("Unknown pattern: " + pattern);
+            default -> false; // unknown pattern
         };
+
+        System.out.println("=======================RESULT===============================>>>>>: Result " + result);
+        return result;
     }
 }
+
+
 

@@ -12,7 +12,6 @@ services:
       - JAVA_OPTS=-Xms512m -Xmx2g
       - REDIS_HOST=redis-ebingo
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - EBINGO_DB_HOST=postgres-ebingo
       - EBINGO_DB_PORT=5432
     command: sh -c "java ${JAVA_OPTS} -jar app.jar"
@@ -55,12 +54,11 @@ services:
     environment:
       - REDIS_HOST=redis-ebingo   # the service name in docker-compose
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5

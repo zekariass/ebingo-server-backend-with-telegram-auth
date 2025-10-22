@@ -62,3 +62,11 @@ app:
       - https://00164d5a57b1.ngrok-free.app
       - https://6fb904951050.ngrok-free.app
       - https://ebingo-client-with-telegram-auth.vercel.app
+
+#Number of minutes before a game is considered stale if status is PLAYING, COMPLETED, or COUNTDOWN
+game:
+  stale:
+    ttlInMinutes: 5
+
+  draw:
+    intervalInSeconds: 4

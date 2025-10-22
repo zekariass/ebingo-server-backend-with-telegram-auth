@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLockReactive;
 import org.redisson.api.RedissonReactiveClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveHashOperations;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ReactiveSetOperations;
@@ -50,6 +51,9 @@ public class GameStateService {
     private final ObjectMapper objectMapper;
 //    private final RoomStateService roomStateService;
 
+    @Value("${game.stale.ttlInMinutes:5}")
+    private Integer gameStaleTTLInMinutes;
+
     private static final Duration GAME_STATE_TTL = Duration.ofHours(24);
 
     // ----------------------------
@@ -66,7 +70,7 @@ public class GameStateService {
                                     if (gs.isEnded() || gs.getStatus().equals(GameStatus.COMPLETED)) {
                                         return deleteGameState(roomId)
                                                 .then(initializeGameWithLock(roomId, userId, capacity));
-                                    } else if ((gs.getStatus().equals(GameStatus.PLAYING) || gs.getStatus().equals(GameStatus.COUNTDOWN)) && gs.getStatusUpdatedAt().isBefore(Instant.now().minus(Duration.ofMinutes(4)))) {
+                                    } else if ((gs.getStatus().equals(GameStatus.PLAYING) || gs.getStatus().equals(GameStatus.COUNTDOWN)) && gs.getStatusUpdatedAt().isBefore(Instant.now().minus(Duration.ofMinutes(gameStaleTTLInMinutes)))) {
                                         return deleteGameState(roomId)
                                                 .then(initializeGameWithLock(roomId, userId, capacity));
                                     }
@@ -427,7 +431,6 @@ public class GameStateService {
         return hashOps.entries(gameKey)
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue)
                 .flatMap(gameMeta -> {
-                    log.info("=======================================>>>> GAME META: {}", gameMeta);
                     if (gameMeta.isEmpty()) {
                         return Mono.empty();
                     }
@@ -467,7 +470,7 @@ public class GameStateService {
                         log.warn("Missing countdownEndTime in gameMeta for game {}", state.getGameId());
                         state.setCountdownEndTime(null);
                     }
-                    log.info("====================GAME STATE FROM REDIS===========>>> {}", state);
+                    log.info("Fetched game state with id {}: ", state.getGameId());
 
                     // Fetch all reactive parts
                     Mono<LinkedHashSet<Integer>> drawnNumbers = getDrawnNumbers(state.getGameId());

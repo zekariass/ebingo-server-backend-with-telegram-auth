@@ -25,6 +25,7 @@ import com.ebingo.backend.system.redis.RedisKeys;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.ReactiveSubscription;
 import org.springframework.data.redis.core.ReactiveSetOperations;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -73,7 +74,9 @@ public class GameService {
     private final Map<Long, MonoSink<Void>> stopLoopSinks = new ConcurrentHashMap<>();
     private final Set<Long> subscribedRooms = ConcurrentHashMap.newKeySet();
 
-    private final int drawInterval = 3; // seconds
+
+    @Value("${game.draw.intervalInSeconds:5}")
+    private Integer drawInterval; // seconds
 //    private final int minPlayersToStart = 1;
 
     public GameService(RedisPublisher publisher, CardPoolService cardPoolService, BingoPatternVerifier patternVerifier, PlayerStateService playerStateService, GameStateService gameStateService, PaymentService paymentService, ReactiveSetOperations<String, String> setOps, PlayerCleanupService playerCleanupService, ReactiveStringRedisTemplate reactiveRedisTemplate1, ReactiveRedisMessageListenerContainer redisListenerContainer, BingoClaimService bingoClaimService, ObjectMapper objectMapper, GameTransactionService gameTransactionService, GameRepository gameRepository, RoomRepository roomRepository) {
@@ -101,7 +104,7 @@ public class GameService {
         String playersKey = RedisKeys.gamePlayersKey(gameId);
         AtomicBoolean paymentCompleted = new AtomicBoolean(false);
 
-        log.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>User {} is joining game {}", userId, gameId);
+        log.info("User {} is joining game {}", userId, gameId);
 
         return setOps.add(playersKey, userId) // SADD → 1=new user, 0=already joined
                 .flatMap(added -> {
@@ -255,7 +258,7 @@ public class GameService {
                         return Mono.empty();
                     }
 
-                    log.info("==========================================>>>>Starting countdown for game {}", gameId);
+                    log.info("Starting countdown for game {}", gameId);
                     String countdownLockKey = RedisKeys.countdownLockKey(gameId);
 
                     // Lua script with TTL (EX seconds)
@@ -623,6 +626,7 @@ public class GameService {
         final int maxDraws = 75;
         final String endLockKey = "game:end-lock:" + roomId; // New lock key for endGame
 
+        log.info(">>>>>>>>>>>>>>>>>>>>>><<<<<<DRAW INTERVAL>>>>>>>>>>>>>>>>>>><<<<>>>>>>>>:: {}", drawInterval);
         // Automatically subscribe to Redis stop channel
         autoSubscribeStopChannel(roomId);
 
@@ -901,7 +905,7 @@ public class GameService {
                                                                 .subscribeOn(Schedulers.boundedElastic())
                                                                 .flatMap(isWinner -> {
                                                                     if (!Boolean.TRUE.equals(isWinner)) {
-                                                                        log.info("===============>>>>>>>>================>>>>>>>>>>: INVALID CLAIM");
+                                                                        log.info("===============>>>>HOHO>>>>================>>>>>>>>>>: INVALID CLAIM");
                                                                         return releaseClaimLock(claimLockKey, userId)
                                                                                 .then(sendUserError(userId, cardId, "INVALID_BINGO_CLAIM", "Invalid claim"))
                                                                                 .then(
