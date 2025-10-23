@@ -75,6 +75,7 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     public Mono<WalletDto> debit(Wallet wallet, BigDecimal amount, GameTxnType gameTxnType) {
+        log.info("Debiting wallet with id: {} for amount: {}", wallet.getId(), amount);
         if (GameTxnType.GAME_FEE.equals(gameTxnType)) {
 
             if (wallet.getTotalAvailableBalance().compareTo(amount) < 0) {
@@ -105,14 +106,6 @@ public class WalletServiceImpl implements WalletService {
 
             // 4️⃣ Finally, deduct the full amount from totalAvailableBalance (because it includes all bonuses)
             wallet.setTotalAvailableBalance(wallet.getTotalAvailableBalance().subtract(amount));
-
-            // 5️⃣ Recalculate availableToWithdraw
-//            wallet.setAvailableToWithdraw(
-//                    wallet.getTotalAvailableBalance()
-//                            .subtract(wallet.getAvailableWelcomeBonus())
-//                            .subtract(wallet.getAvailableReferralBonus())
-//                            .max(BigDecimal.ZERO)
-//            );
 
             log.info("✅ Debit complete for wallet {} (welcome used: {}, referral used: {}, remaining cash: {})",
                     wallet.getId(), usedFromWelcome, usedFromReferral, remaining);

@@ -27,23 +27,42 @@ public class PaymentServiceImpl implements PaymentService {
         this.gameTxnService = gameTxnService;
     }
 
+//    @Override
+//    public Mono<Boolean> processPayment(Long telegramId, BigDecimal amount, Long gameId) {
+//        return userProfileService.getUserProfileByTelegramId(telegramId)
+//                .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
+//                .flatMap(userProfile ->
+//                        walletRepository.findByUserProfileId(userProfile.getId())
+//                                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Wallet not found")))
+//                                .flatMap(wallet ->
+//                                        walletService.debit(wallet, amount, GameTxnType.GAME_FEE)
+//                                                .then(gameTxnService.createGameTransaction(
+//                                                        userProfile.getId(),
+//                                                        amount,
+//                                                        GameTxnType.GAME_FEE,
+//                                                        gameId
+//                                                ))
+//                                                .thenReturn(true)
+//                                )
+//                )
+//                .onErrorResume(ex -> {
+//                    log.error("Payment processing failed for gameId={}: {}", gameId, ex.getMessage());
+//                    return Mono.just(false);
+//                });
+//    }
+
+
     @Override
     public Mono<Boolean> processPayment(Long telegramId, BigDecimal amount, Long gameId) {
         return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
-                .flatMap(userProfile ->
-                        walletRepository.findByUserProfileId(userProfile.getId())
-                                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Wallet not found")))
-                                .flatMap(wallet ->
-                                        walletService.debit(wallet, amount, GameTxnType.GAME_FEE)
-                                                .then(gameTxnService.createGameTransaction(
-                                                        userProfile.getId(),
-                                                        amount,
-                                                        GameTxnType.GAME_FEE,
-                                                        gameId
-                                                ))
-                                                .thenReturn(true)
+                .flatMap(userProfile -> gameTxnService.createGameTransaction(
+                                        userProfile.getId(),
+                                        amount,
+                                        GameTxnType.GAME_FEE,
+                                        gameId
                                 )
+                                .thenReturn(true)
                 )
                 .onErrorResume(ex -> {
                     log.error("Payment processing failed for gameId={}: {}", gameId, ex.getMessage());
