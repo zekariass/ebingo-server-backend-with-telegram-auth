@@ -70,11 +70,14 @@ public class UserProfileServiceImpl implements UserProfileService {
     public Mono<UserProfileDto> getUserProfileByTelegramId(Long telegramId) {
         return userProfileRepository.findByTelegramId(telegramId)
                 .map(UserProfileMapper::toDto)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("User not found")))
-                .doOnSubscribe(s -> log.info("Fetching user profile by telegramId"))
-                .doOnSuccess(dto -> log.info("Completed fetching user profile by telegramId"))
-                .doOnError(e -> log.error("Failed to fetch user profile by telegramId"));
-
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("User not found for telegramId: " + telegramId)))
+                .doOnSubscribe(s -> log.info("Fetching user profile for telegramId: {}", telegramId))
+                .doOnSuccess(dto -> {
+                    if (dto != null) {
+                        log.info("Successfully fetched user profile for telegramId: {}", telegramId);
+                    }
+                })
+                .doOnError(e -> log.error("Failed to fetch user profile for telegramId: {} - {}", telegramId, e.getMessage(), e));
     }
 
 

@@ -77,7 +77,9 @@ public class GameService {
 
     @Value("${game.draw.intervalInSeconds:5}")
     private Integer drawInterval; // seconds
-//    private final int minPlayersToStart = 1;
+
+    @Value("${game.countdown.initialInSeconds:30}")
+    private Integer initialCountdownSeconds;
 
     public GameService(RedisPublisher publisher, CardPoolService cardPoolService, BingoPatternVerifier patternVerifier, PlayerStateService playerStateService, GameStateService gameStateService, PaymentService paymentService, ReactiveSetOperations<String, String> setOps, PlayerCleanupService playerCleanupService, ReactiveStringRedisTemplate reactiveRedisTemplate1, ReactiveRedisMessageListenerContainer redisListenerContainer, BingoClaimService bingoClaimService, ObjectMapper objectMapper, GameTransactionService gameTransactionService, GameRepository gameRepository, RoomRepository roomRepository) {
         this.publisher = publisher;
@@ -143,12 +145,21 @@ public class GameService {
                                 // Rollback membership on unexpected errors after payment
                                 log.error("Join failed for user {}: {}", userId, error.getMessage(), error);
                                 if (paymentCompleted.get()) {
+//                                    return paymentService.processRefund(Long.parseLong(userId), gameId)
+//                                            .doOnSuccess(refunded ->
+//                                                    log.warn("Refund {} for user {} after failure",
+//                                                            refunded ? "succeeded" : "failed", userId))
+//                                            .then(setOps.remove(playersKey, userId))
+//                                            .then();
+
                                     return paymentService.processRefund(Long.parseLong(userId), gameId)
-                                            .doOnSuccess(refunded ->
-                                                    log.warn("Refund {} for user {} after failure",
-                                                            refunded ? "succeeded" : "failed", userId))
+                                            .onErrorResume(refundErr -> {
+                                                log.error("Refund failed for user {}: {}", userId, refundErr.getMessage(), refundErr);
+                                                return Mono.empty(); // ignore refund error
+                                            })
                                             .then(setOps.remove(playersKey, userId))
                                             .then();
+
                                 }
                                 return setOps.remove(playersKey, userId).then();
                             });
@@ -281,7 +292,7 @@ public class GameService {
                                 if (acquired != null && acquired == 1) {
                                     log.info("Countdown lock acquired for game {}", gameId);
 
-                                    return startCountdownByGameId(roomId, gameId, userId, capacity, 20)
+                                    return startCountdownByGameId(roomId, gameId, userId, capacity, initialCountdownSeconds)
                                             // Release lock after countdown completes
                                             .then(releaseCountdownLock(reactiveRedisTemplate, countdownLockKey))
                                             .doOnError(err -> log.error("Countdown failed for game {}", gameId, err))
@@ -304,7 +315,7 @@ public class GameService {
 
 
     public Mono<Void> leaveGame(Long roomId, Long gameId, String userId) {
-        System.out.println("leave Game called for user " + userId + " in game " + gameId + " in room " + roomId);
+        System.out.println("User " + userId + " is leaving game " + gameId);
         return gameStateService.getGameState(roomId)
                 .flatMap(state -> {
                     if (state == null) {
@@ -323,6 +334,7 @@ public class GameService {
                     }
 
                     String playersKey = RedisKeys.gamePlayersKey(state.getGameId());
+                    String roomPlayersKey = RedisKeys.roomPlayersKey(roomId);
 
                     boolean gameStarted = state.isStarted();
 
@@ -394,7 +406,7 @@ public class GameService {
                                                         );
                                                     });
                                         });
-                                return refund.then(broadcastPlayers).then();
+                                return refund.then(broadcastPlayers).then(setOps.remove(roomPlayersKey, userId)).then();
                             });
                 })
                 .onErrorResume(error -> {

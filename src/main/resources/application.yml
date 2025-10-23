@@ -69,3 +69,6 @@ game:
 
   draw:
     intervalInSeconds: 4
+
+  countdown:
+    initialInSeconds: 30
