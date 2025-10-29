@@ -45,7 +45,7 @@ public class AddisPayWithdrawalStrategy implements WithdrawalStrategy {
         data.put("order_reason", "Customer Payout");
         data.put("currency", request.getCurrency());
         data.put("customer_name", (user.getFirstName() + " " + (user.getLastName() != null ? user.getLastName() : "")).strip());
-        data.put("phone_number", normalizePhoneNumber(request.getPhoneNumber()));
+        data.put("phone_number", request.getPhoneNumber());
         data.put("nonce", "payout" + System.currentTimeMillis());
         data.put("payment_method", request.getProviderPaymentMethodName());
         data.put("total_amount", request.getAmount().setScale(2, RoundingMode.HALF_UP).toPlainString());
@@ -81,16 +81,5 @@ public class AddisPayWithdrawalStrategy implements WithdrawalStrategy {
                     }
                 })
                 .doOnError(err -> log.error("AddisPay payout failed: {}", err.getMessage(), err));
-    }
-
-    private String normalizePhoneNumber(String phoneNumber) {
-        if (phoneNumber.startsWith("+")) {
-            return phoneNumber.replace("+", "");
-        }
-
-        if (phoneNumber.startsWith("0")) {
-            return phoneNumber.replace("0", "251");
-        }
-        return phoneNumber;
     }
 }

@@ -727,7 +727,7 @@ public class PaymentOrderServiceImpl implements PaymentOrderService {
         PaymentOrder order = new PaymentOrder();
         order.setUserId(userProfileDto.getId());
         order.generateAndSetTxnRef();
-        order.setPhoneNumber(request.getPhoneNumber());
+        order.setPhoneNumber(normalizePhoneNumber(request.getPhoneNumber()));
         order.setAmount(amount);
         order.setCurrency(request.getCurrency());
         order.setStatus(PaymentOrderStatus.PENDING);
@@ -740,7 +740,8 @@ public class PaymentOrderServiceImpl implements PaymentOrderService {
         if (request.getBankName() != null) metaData.put("bankName", request.getBankName());
         if (request.getAccountName() != null) metaData.put("accountName", request.getAccountName());
         if (request.getAccountNumber() != null) metaData.put("accountNumber", request.getAccountNumber());
-        if (request.getPhoneNumber() != null) metaData.put("phoneNumber", request.getPhoneNumber());
+        if (request.getPhoneNumber() != null)
+            metaData.put("phoneNumber", normalizePhoneNumber(request.getPhoneNumber()));
 
         try {
             order.setMetaData(mapper.writeValueAsString(metaData));
@@ -749,6 +750,18 @@ public class PaymentOrderServiceImpl implements PaymentOrderService {
         }
 
         return order;
+    }
+
+
+    private String normalizePhoneNumber(String phoneNumber) {
+        if (phoneNumber.startsWith("+")) {
+            return phoneNumber.replace("+", "");
+        }
+
+        if (phoneNumber.startsWith("0")) {
+            return phoneNumber.replaceFirst("0", "251");
+        }
+        return phoneNumber;
     }
 
     /**
