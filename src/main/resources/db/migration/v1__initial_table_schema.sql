@@ -107,50 +107,181 @@ CREATE TABLE bingo_claims (
 -- Indexes for bingo_claims
 CREATE INDEX idx_bingo_claims_game_id ON bingo_claims(game_id);
 CREATE INDEX idx_bingo_claims_player_id ON bingo_claims(player_id);
-
--- Enum types for transactions
---CREATE TYPE transaction_type AS ENUM ('DEPOSIT', 'WITHDRAWAL', 'TRANSFER');
---CREATE TYPE transaction_status AS ENUM ('PENDING', 'AWAITING_APPROVAL', 'COMPLETED', 'FAILED');
+ transaction_status AS ENUM ('PENDING', 'AWAITING_APPROVAL', 'COMPLETED', 'FAILED');
 
 -- payment_method Table
 CREATE TABLE payment_method (
     id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    code VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
     description TEXT,
-    is_default boolean,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    is_default BOOLEAN DEFAULT FALSE,
+    is_online BOOLEAN DEFAULT TRUE,
+    is_mobile_money BOOLEAN DEFAULT FALSE,
+    instruction_url TEXT,
+    logo_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+-- Indexes for faster queries
+CREATE INDEX idx_payment_method_name ON payment_method(name);
+CREATE INDEX idx_payment_method_is_default ON payment_method(is_default);
+CREATE INDEX idx_payment_method_is_online ON payment_method(is_online);
 CREATE UNIQUE INDEX idx_default_payment_method
 ON payment_method (is_default)
 WHERE is_default = true;
 
+-- ===============================
+-- PAYMENT ORDER TABLE DEFINITION
+-- ===============================
 
--- transaction Table
-CREATE TABLE transaction (
+CREATE TABLE IF NOT EXISTS payment_order (
     id BIGSERIAL PRIMARY KEY,
-    player_id BIGINT NOT NULL,
-    txn_ref VARCHAR(100) NOT NULL,
+
+    user_id BIGINT NOT NULL,
+    txn_ref VARCHAR(50) UNIQUE NOT NULL,
+    phone_number VARCHAR(30),
+    provider_order_ref VARCHAR(100),
+
+    amount NUMERIC(18, 2) NOT NULL,
+    currency VARCHAR(10) NOT NULL,
+
+    status VARCHAR(50) NOT NULL,
+    reason TEXT,
+
     payment_method_id BIGINT NOT NULL,
-    txn_type VARCHAR(50) NOT NULL, -- 'DEPOSIT', 'WITHDRAWAL', DISPUTE
-    txn_amount NUMERIC(12,2) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING', --'PENDING', 'AWAITING_APPROVAL', 'COMPLETED', 'FAILED'
-    description TEXT,
-    meta_data TEXT, -- JSON (bank details, etc)
+    instructions_url TEXT,
+
+    txn_type VARCHAR(50) NOT NULL,
+    nonce VARCHAR(100) NOT NULL,
+
+    meta_data TEXT,
     approved_by BIGINT,
-    approved_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_transaction_player_id FOREIGN KEY (player_id) REFERENCES user_profile(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_transaction_payment_method_id FOREIGN KEY (payment_method_id) REFERENCES payment_method(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_transaction_approved_by FOREIGN KEY (approved_by) REFERENCES user_profile(id) ON DELETE SET NULL
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_payment_user FOREIGN KEY (user_id)
+        REFERENCES user_profile(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_payment_method FOREIGN KEY (payment_method_id)
+        REFERENCES payment_method(id) ON DELETE CASCADE
 );
 
--- Indexes for transaction
-CREATE INDEX idx_transaction_player_id ON transaction(player_id);
-CREATE INDEX idx_transaction_status ON transaction(status);
-CREATE INDEX idx_transaction_type ON transaction(txn_type);
+-- ===============================
+-- INDEXES FOR PERFORMANCE
+-- ===============================
+
+-- Fast lookup by user (user’s orders)
+CREATE INDEX IF NOT EXISTS idx_payment_order_user_id
+    ON payment_order (user_id);
+
+-- Fast lookup by transaction reference (for reconciliation / provider callbacks)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_order_txn_ref
+    ON payment_order (txn_ref);
+
+-- Fast lookup by provider reference (AddisPay or other external integrations)
+CREATE INDEX IF NOT EXISTS idx_payment_order_provider_ref
+    ON payment_order (provider_order_ref);
+
+-- Query filtering or pagination by status
+CREATE INDEX IF NOT EXISTS idx_payment_order_status
+    ON payment_order (status);
+
+-- Query by payment method (useful for admin dashboards)
+CREATE INDEX IF NOT EXISTS idx_payment_order_payment_method
+    ON payment_order (payment_method_id);
+
+-- Queries filtering by transaction type (Deposit, Withdrawal)
+CREATE INDEX IF NOT EXISTS idx_payment_order_txn_type
+    ON payment_order (txn_type);
+
+-- Ordering and pagination by created_at (common default sort)
+CREATE INDEX IF NOT EXISTS idx_payment_order_created_at
+    ON payment_order (created_at DESC);
+
+-- Ordering and pagination by updated_at (for “recently updated” listings)
+CREATE INDEX IF NOT EXISTS idx_payment_order_updated_at
+    ON payment_order (updated_at DESC);
+
+-- For admin approval queries (offline orders awaiting approval)
+CREATE INDEX IF NOT EXISTS idx_payment_order_approved_by
+    ON payment_order (approved_by);
+
+
+
+-- ===============================
+-- TRANSACTION TABLE DEFINITION
+-- ===============================
+
+CREATE TABLE IF NOT EXISTS transaction (
+    id BIGSERIAL PRIMARY KEY,
+
+    player_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    txn_ref VARCHAR(50) UNIQUE NOT NULL,
+    payment_method_id BIGINT NOT NULL,
+
+    txn_type VARCHAR(50) NOT NULL,
+    txn_amount NUMERIC(18, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+
+    meta_data TEXT,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    -- Foreign keys
+    CONSTRAINT fk_transaction_player FOREIGN KEY (player_id)
+        REFERENCES user_profile(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_transaction_order FOREIGN KEY (order_id)
+        REFERENCES payment_order(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_transaction_payment_method FOREIGN KEY (payment_method_id)
+        REFERENCES payment_method(id) ON DELETE CASCADE
+);
+
+-- ===============================
+-- INDEXES FOR PERFORMANCE
+-- ===============================
+
+-- Fast lookup by player for transaction history
+CREATE INDEX IF NOT EXISTS idx_transaction_player_id
+    ON transaction (player_id);
+
+-- Fast lookup by order linkage
+CREATE INDEX IF NOT EXISTS idx_transaction_order_id
+    ON transaction (order_id);
+
+-- Fast lookup by txn_ref for reconciliation (must be unique)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transaction_txn_ref
+    ON transaction (txn_ref);
+
+-- Queries filtered by status (e.g., COMPLETED, FAILED)
+CREATE INDEX IF NOT EXISTS idx_transaction_status
+    ON transaction (status);
+
+-- Queries filtered by type (e.g., DEPOSIT, WITHDRAWAL)
+CREATE INDEX IF NOT EXISTS idx_transaction_txn_type
+    ON transaction (txn_type);
+
+-- Fast lookup by payment method
+CREATE INDEX IF NOT EXISTS idx_transaction_payment_method
+    ON transaction (payment_method_id);
+
+-- Sorting and pagination
+CREATE INDEX IF NOT EXISTS idx_transaction_created_at
+    ON transaction (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_transaction_updated_at
+    ON transaction (updated_at DESC);
+
+-- Composite index for admin dashboards (status + type + date)
+CREATE INDEX IF NOT EXISTS idx_transaction_status_type_created_at
+    ON transaction (status, txn_type, created_at DESC);
+
 
 
 CREATE TABLE deposit_transfer (
@@ -205,3 +336,5 @@ CREATE TABLE system_config (
 
 -- Indexes for system_config
 CREATE INDEX idx_system_config_name ON system_config(name);
+
+

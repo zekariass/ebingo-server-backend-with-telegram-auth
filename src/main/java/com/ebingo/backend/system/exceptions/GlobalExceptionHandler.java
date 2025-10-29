@@ -85,6 +85,11 @@ public class GlobalExceptionHandler {
         return buildApiResponse(null, HttpStatus.CONFLICT, ex.getMessage(), exchange);
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public Mono<ResponseEntity<ApiResponse<Object>>> handleUnauthorizedException(UnauthorizedException ex, ServerWebExchange exchange) {
+        return buildApiResponse(null, HttpStatus.FORBIDDEN, ex.getMessage(), exchange);
+    }
+
     @ExceptionHandler(UserCreationException.class)
     public Mono<ResponseEntity<ApiResponse<Object>>> handleUserCreationException(UserCreationException ex, ServerWebExchange exchange) {
         String rootMessage = getRootCauseMessage(ex);
@@ -165,6 +170,11 @@ public class GlobalExceptionHandler {
     }
 
 
+    @ExceptionHandler(TelegramAuthException.class)
+    public Mono<ResponseEntity<ApiResponse<Object>>> handleTelegramAuthException(TelegramAuthException ex, ServerWebExchange exchange) {
+        return buildApiResponse(null, HttpStatus.UNAUTHORIZED, ex.getMessage(), exchange);
+    }
+
     // ---------------- Handle Data Integrity Violations ----------------
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
@@ -200,4 +210,5 @@ public class GlobalExceptionHandler {
 
         return Mono.just(ResponseEntity.status(status).body(apiResponse));
     }
+
 }

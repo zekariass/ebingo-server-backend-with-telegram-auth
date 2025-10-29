@@ -3,6 +3,7 @@ package com.ebingo.backend.payment.service;
 import com.ebingo.backend.payment.dto.WalletDto;
 import com.ebingo.backend.payment.entity.Wallet;
 import com.ebingo.backend.payment.enums.GameTxnType;
+import com.ebingo.backend.payment.enums.TransactionType;
 import com.ebingo.backend.payment.mappers.WalletMapper;
 import com.ebingo.backend.payment.repository.WalletRepository;
 import com.ebingo.backend.system.exceptions.InsufficientBalanceException;
@@ -18,6 +19,7 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -142,6 +144,33 @@ public class WalletServiceImpl implements WalletService {
         }
 
         return Mono.error(new IllegalArgumentException("Unsupported transaction type for credit: " + gameTxnType));
+    }
+
+
+    @Override
+    public Mono<WalletDto> credit(Long userProfileId, BigDecimal amount, String reason, TransactionType transactionType, Map<String, Object> metadata) {
+        log.info("Crediting wallet for user profile id: {} with amount: {} for reason: {}",
+                userProfileId, amount, reason);
+
+        return walletRepository.findByUserProfileId(userProfileId)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException(
+                        "Wallet not found for user profile id: " + userProfileId)))
+                .flatMap(wallet -> {
+                    // Update wallet balances
+                    wallet.setTotalAvailableBalance(wallet.getTotalAvailableBalance().add(amount));
+
+                    if (TransactionType.DEPOSIT.equals(transactionType)) {
+                        wallet.setTotalDeposit(wallet.getTotalDeposit().add(amount));
+                        // Update availableToWithdraw for deposits
+                        BigDecimal availableToWithdraw = wallet.getTotalAvailableBalance()
+                                .subtract(wallet.getAvailableWelcomeBonus())
+                                .subtract(wallet.getAvailableReferralBonus());
+                        wallet.setAvailableToWithdraw(availableToWithdraw);
+                    }
+
+                    return walletRepository.save(wallet);
+                })
+                .map(WalletMapper::toDto);
     }
 
 

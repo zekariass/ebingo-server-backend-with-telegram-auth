@@ -99,6 +99,14 @@ public class DepositTransferServiceImpl implements DepositTransferService {
 
         BigDecimal amount = depositTransferDto.getAmount();
 
+        // Normalize and validate phone number first
+        String normalizedPhone = normalizePhoneNumber(depositTransferDto.getPhoneNumber());
+        if (normalizedPhone == null) {
+            return Mono.error(new IllegalArgumentException("Invalid phone number format. Use 09..., 07..., +2519..., or +2517..."));
+        }
+
+        String finalPhone = normalizedPhone;
+
         Mono<DepositTransferDto> transferMono = userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Sender profile not found")))
                 .flatMap(senderProfile ->
@@ -107,15 +115,18 @@ public class DepositTransferServiceImpl implements DepositTransferService {
                                 .switchIfEmpty(walletService.createWallet(UserProfileMapper.toEntity(senderProfile)))
                                 .flatMap(senderWallet ->
                                         // Get or create receiver wallet
-                                        userProfileService.getUserProfileByPhoneNumber(depositTransferDto.getPhoneNumber())
-                                                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Receiver profile not found")))
+                                        userProfileService.getUserProfileByPhoneNumber(finalPhone)
+                                                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Receiver profile not found for phone: " + finalPhone)))
                                                 .flatMap(receiverProfile ->
                                                         walletService.getWalletByUserProfileId(receiverProfile.getId())
                                                                 .switchIfEmpty(walletService.createWallet(UserProfileMapper.toEntity(receiverProfile)))
                                                                 .flatMap(receiverWallet -> {
                                                                     // Check sender balance
                                                                     if (senderWallet.getTotalAvailableBalance().compareTo(amount) < 0) {
-                                                                        // Insufficient balance — create failed transfer record
+                                                                        log.warn("Insufficient balance for transfer: senderId={}, balance={}, requested={}",
+                                                                                senderProfile.getId(), senderWallet.getTotalAvailableBalance(), amount);
+
+                                                                        // Create failed transfer record
                                                                         DepositTransfer failedTransfer = new DepositTransfer();
                                                                         failedTransfer.setSenderId(senderProfile.getId());
                                                                         failedTransfer.setReceiverId(receiverProfile.getId());
@@ -127,13 +138,12 @@ public class DepositTransferServiceImpl implements DepositTransferService {
                                                                                 .map(DepositTransferMapper::toDto);
                                                                     }
 
-                                                                    // Update sender and receiver wallets reactively
+                                                                    // Process transfer reactively
                                                                     return updateSenderWalletBalance(WalletMapper.toEntity(senderWallet), amount)
                                                                             .flatMap(walletService::saveWallet)
                                                                             .then(creditReceiverWalletBalanceForDeposit(WalletMapper.toEntity(receiverWallet), amount)
                                                                                     .flatMap(walletService::saveWallet))
                                                                             .then(Mono.defer(() -> {
-                                                                                // Create success transfer record
                                                                                 DepositTransfer transfer = new DepositTransfer();
                                                                                 transfer.setSenderId(senderProfile.getId());
                                                                                 transfer.setReceiverId(receiverProfile.getId());
@@ -149,11 +159,39 @@ public class DepositTransferServiceImpl implements DepositTransferService {
                                 )
                 );
 
-        // Execute in reactive transaction
+        // Execute transactionally
         return this.transactionalOperator.transactional(transferMono)
-                .doOnSubscribe(s -> log.info("Starting deposit transfer for Supabase user: {}", telegramId))
+                .doOnSubscribe(s -> log.info("Starting deposit transfer for Telegram user: {}", telegramId))
                 .doOnSuccess(dto -> log.info("Deposit transfer completed successfully: {}", dto))
                 .doOnError(e -> log.error("Failed to complete deposit transfer: {}", e.getMessage(), e));
+    }
+
+    /**
+     * Utility method for phone number normalization and validation.
+     * Converts 09xxxxxxx → +2519xxxxxxx, 07xxxxxxx → +2517xxxxxxx
+     */
+    private String normalizePhoneNumber(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+
+        phone = phone.trim().replaceAll("\\s+", "");
+
+        // If already in correct international format
+        if (phone.startsWith("+251") && (phone.length() == 13)) {
+            return phone;
+        }
+
+        // Local number starting with 0
+        if (phone.startsWith("09") && phone.length() == 10) {
+            return "+251" + phone.substring(1);
+        }
+
+        if (phone.startsWith("07") && phone.length() == 10) {
+            return "+251" + phone.substring(1);
+        }
+
+        return null; // invalid format
     }
 
 
@@ -164,14 +202,6 @@ public class DepositTransferServiceImpl implements DepositTransferService {
 //            BigDecimal deposit = senderWallet.getDepositBalance();
             BigDecimal referral = senderWallet.getAvailableReferralBonus();
             BigDecimal welcome = senderWallet.getAvailableWelcomeBonus();
-
-
-//            // Deduct from deposit balance first
-//            if (deposit.compareTo(BigDecimal.ZERO) > 0) {
-//                BigDecimal used = deposit.min(remaining);
-//                senderWallet.setDepositBalance(deposit.subtract(used));
-//                remaining = remaining.subtract(used);
-//            }
 
             // Deduct from referral bonus
             if (remaining.compareTo(BigDecimal.ZERO) > 0 && referral.compareTo(BigDecimal.ZERO) > 0) {
@@ -206,23 +236,10 @@ public class DepositTransferServiceImpl implements DepositTransferService {
                 remaining = remaining.subtract(used);
             }
 
-
             // Insufficient funds check
             if (remaining.compareTo(BigDecimal.ZERO) > 0) {
                 throw new InsufficientBalanceException("Insufficient wallet balance to complete transfer");
             }
-
-            // Recalculate totals
-//            senderWallet.setTotalAvailableBalance(
-//                    senderWallet.getDepositBalance()
-//                            .add(senderWallet.getAvailableReferralBonus())
-//                            .add(senderWallet.getAvailableWelcomeBonus())
-//            );
-
-//            senderWallet.setAvailableToWithdraw(
-//                    senderWallet.getDepositBalance()
-//                            .add(senderWallet.getAvailableReferralBonus())
-//            );
 
             return senderWallet;
         });

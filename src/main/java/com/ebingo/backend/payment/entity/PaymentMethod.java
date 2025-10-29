@@ -20,11 +20,21 @@ public class PaymentMethod {
     @Id
     private Long id;
 
+    private String code;
+
     private String name;
 
     private String description;
 
     private Boolean isDefault;
+
+    private Boolean isOnline; // new field
+
+    private Boolean isMobileMoney; // new field
+
+    private String instructionUrl; // new field
+
+    private String logoUrl;
 
     @CreatedDate
     @Column("created_at")

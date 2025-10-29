@@ -1,7 +1,7 @@
 package com.ebingo.backend.game.controller.secured;
 
-import com.ebingo.backend.common.TelegramAuthVerifier;
 import com.ebingo.backend.common.dto.ApiResponse;
+import com.ebingo.backend.common.telegram.TelegramAuthVerifier;
 import com.ebingo.backend.game.dto.RoomCreateDto;
 import com.ebingo.backend.game.dto.RoomDto;
 import com.ebingo.backend.game.dto.RoomUpdateDto;

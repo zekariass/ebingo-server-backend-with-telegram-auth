@@ -26,6 +26,9 @@ public class Transaction {
     @Column("player_id")
     private Long playerId;
 
+    @Column("order_id")
+    private Long orderId;
+
     @Column("txn_ref")
     private String txnRef;
 
@@ -40,16 +43,8 @@ public class Transaction {
 
     private TransactionStatus status;
 
-    private String description;
-
     @Column("meta_data")
     private String metaData; // JSON string
-
-    @Column("approved_by")
-    private Long approvedBy;
-
-    @Column("approved_at")
-    private Instant approvedAt;
 
     @CreatedDate
     @Column("created_at")

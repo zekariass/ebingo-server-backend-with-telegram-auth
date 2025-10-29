@@ -12,7 +12,7 @@ public final class TransactionMapper {
         return TransactionDto.builder()
                 .id(transaction.getId())
                 .playerId(transaction.getPlayerId())
-                .description(transaction.getDescription())
+//                .description(transaction.getDescription())
                 .status(transaction.getStatus())
                 .paymentMethodId(transaction.getPaymentMethodId())
                 .txnType(transaction.getTxnType())

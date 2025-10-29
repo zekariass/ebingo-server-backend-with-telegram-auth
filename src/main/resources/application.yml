@@ -62,6 +62,15 @@ app:
       - https://6fb904951050.ngrok-free.app
       - https://ebingo-client-with-telegram-auth.vercel.app
 
+addis-pay:
+  api-key: ${ADDISPAY_API_KEY}
+  base-url: ${ADDISPAY_BASE_URL}
+  webhook-hash: ${WEBHOOK_HASH}
+  redirect-url: ${ADDISPAY_REDIRECT_URL}
+  success-url: ${ADDISPAY_SUCCESS_URL}
+  error-url: ${ADDISPAY_ERROR_URL}
+  cancel-url: ${ADDISPAY_CANCEL_URL}
+
 #Number of minutes before a game is considered stale if status is PLAYING, COMPLETED, or COUNTDOWN
 game:
   stale:

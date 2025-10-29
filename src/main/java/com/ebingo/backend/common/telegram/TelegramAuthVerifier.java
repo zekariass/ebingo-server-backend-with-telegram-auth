@@ -1,4 +1,4 @@
-package com.ebingo.backend.common;
+package com.ebingo.backend.common.telegram;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,12 +45,6 @@ public class TelegramAuthVerifier {
             dataMac.init(new SecretKeySpec(secretKey, "HmacSHA256"));
             byte[] computed = dataMac.doFinal(dataCheckString.getBytes(StandardCharsets.UTF_8));
             String computedHash = bytesToHex(computed);
-
-//            log.info("receivedHash: {}", receivedHash);
-//            log.info("computedHash: {}", computedHash);
-
-
-//            log.info("=============================>>> Params: {}", params);
 
             if (receivedHash.equalsIgnoreCase(computedHash)) {
                 return Optional.of(params);

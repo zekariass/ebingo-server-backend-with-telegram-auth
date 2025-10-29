@@ -1,6 +1,6 @@
 package com.ebingo.backend.game.ws;
 
-import com.ebingo.backend.common.TelegramAuthVerifier;
+import com.ebingo.backend.common.telegram.TelegramAuthVerifier;
 import com.ebingo.backend.game.dto.WSMessage;
 import com.ebingo.backend.game.service.CardPoolService;
 import com.ebingo.backend.game.service.CardSelectionService;

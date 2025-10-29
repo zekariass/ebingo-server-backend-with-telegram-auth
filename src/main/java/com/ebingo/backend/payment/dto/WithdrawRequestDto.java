@@ -1,5 +1,7 @@
 package com.ebingo.backend.payment.dto;
 
+import com.ebingo.backend.payment.enums.TransactionType;
+import com.ebingo.backend.payment.enums.WithdrawalMode;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -12,8 +14,14 @@ import java.math.BigDecimal;
 @ToString
 public class WithdrawRequestDto {
     private Long paymentMethodId;
+    private String providerPaymentMethodName;
+    private String phoneNumber;
     private BigDecimal amount;
-    private String bankName;
-    private String accountName;
-    private String accountNumber;
+    private String currency;
+    private TransactionType txnType;
+    private String bankName; // for bank transfers
+    private String accountName;  // for bank transfers
+    private String accountNumber;  // for bank transfers
+    private WithdrawalMode withdrawalMode;
 }
+

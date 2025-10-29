@@ -30,8 +30,8 @@ public class PaymentMethodServiceImpl implements PaymentMethodService {
         log.info("===============>> Fetching payment method by id: {}", id);
         return paymentMethodRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Payment method not found with id: " + id)))
-                .map(PaymentMethodMapper::toDto)
-                .onErrorMap(e -> new RuntimeException("Failed to fetch payment method", e));
+                .map(PaymentMethodMapper::toDto);
+//                .onErrorMap(e -> new RuntimeException("Failed to fetch payment method", e));
     }
 
 }

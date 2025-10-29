@@ -1,7 +1,7 @@
 package com.ebingo.backend.payment.controller.secured;
 
-import com.ebingo.backend.common.TelegramAuthVerifier;
 import com.ebingo.backend.common.dto.ApiResponse;
+import com.ebingo.backend.common.telegram.TelegramAuthVerifier;
 import com.ebingo.backend.payment.dto.GameTransactionDto;
 import com.ebingo.backend.payment.service.GameTransactionService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,7 +40,7 @@ public class GameTransactionController {
             @RequestHeader(value = "x-init-data") String telegramInitData,
             ServerWebExchange exchange
     ) {
-        // ✅ Verify Telegram init data
+        // Verify Telegram init data
         Optional<Map<String, String>> initData = telegramAuthVerifier.verifyInitData(telegramInitData);
         if (initData.isEmpty()) {
             return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -53,7 +53,7 @@ public class GameTransactionController {
                             .build()));
         }
 
-        // ✅ Parse user JSON
+        //  Parse user JSON
         Map<String, Object> user;
         try {
             String userJson = initData.get().get("user");
@@ -79,7 +79,7 @@ public class GameTransactionController {
                             .build()));
         }
 
-        // ✅ Extract Long user ID safely
+        //  Extract Long user ID safely
         Object idObj = user.get("id");
         if (idObj == null) {
             return Mono.just(ResponseEntity.badRequest()
@@ -111,7 +111,7 @@ public class GameTransactionController {
                             .build()));
         }
 
-        // ✅ Fetch transactions
+        //  Fetch transactions
         return gameTransactionService.getPaginatedGameTransactions(userId, page, size, sortBy)
                 .collectList()
                 .map(txns -> ApiResponse.<List<GameTransactionDto>>builder()
