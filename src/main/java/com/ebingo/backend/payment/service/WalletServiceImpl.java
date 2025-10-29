@@ -31,7 +31,7 @@ public class WalletServiceImpl implements WalletService {
     private final UserProfileService userProfileService;
 
     @Override
-    public Mono<WalletDto> createWallet(UserProfile userProfile) {
+    public Mono<WalletDto> createWallet(UserProfile userProfile, BigDecimal bonusAmount) {
         log.info("Creating wallet for user with profile: {}", UserProfileMapper.toDto(userProfile));
 
         Wallet wallet = new Wallet();

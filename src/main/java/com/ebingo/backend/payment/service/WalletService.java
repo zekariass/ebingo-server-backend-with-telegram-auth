@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 public interface WalletService {
-    Mono<WalletDto> createWallet(UserProfile userProfile);
+    Mono<WalletDto> createWallet(UserProfile userProfile, BigDecimal bonusAmount);
 
     Mono<WalletDto> getWalletByUserProfileId(Long userProfileId);
 

@@ -30,10 +30,10 @@ public class Wallet {
     private BigDecimal totalDeposit = BigDecimal.ZERO;
 
     @Column("welcome_bonus")
-    private BigDecimal welcomeBonus = BigDecimal.valueOf(20);
+    private BigDecimal welcomeBonus = BigDecimal.ZERO;
 
     @Column("available_welcome_bonus")
-    private BigDecimal availableWelcomeBonus = BigDecimal.valueOf(20);
+    private BigDecimal availableWelcomeBonus = BigDecimal.ZERO;
 
     @Column("referral_bonus")
     private BigDecimal referralBonus = BigDecimal.ZERO;

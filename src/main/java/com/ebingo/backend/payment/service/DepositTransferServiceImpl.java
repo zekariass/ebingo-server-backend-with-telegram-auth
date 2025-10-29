@@ -112,14 +112,14 @@ public class DepositTransferServiceImpl implements DepositTransferService {
                 .flatMap(senderProfile ->
                         // Get or create sender wallet
                         walletService.getWalletByUserProfileId(senderProfile.getId())
-                                .switchIfEmpty(walletService.createWallet(UserProfileMapper.toEntity(senderProfile)))
+                                .switchIfEmpty(walletService.createWallet(UserProfileMapper.toEntity(senderProfile), BigDecimal.ZERO))
                                 .flatMap(senderWallet ->
                                         // Get or create receiver wallet
                                         userProfileService.getUserProfileByPhoneNumber(finalPhone)
                                                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Receiver profile not found for phone: " + finalPhone)))
                                                 .flatMap(receiverProfile ->
                                                         walletService.getWalletByUserProfileId(receiverProfile.getId())
-                                                                .switchIfEmpty(walletService.createWallet(UserProfileMapper.toEntity(receiverProfile)))
+                                                                .switchIfEmpty(walletService.createWallet(UserProfileMapper.toEntity(receiverProfile), BigDecimal.ZERO))
                                                                 .flatMap(receiverWallet -> {
                                                                     // Check sender balance
                                                                     if (senderWallet.getTotalAvailableBalance().compareTo(amount) < 0) {

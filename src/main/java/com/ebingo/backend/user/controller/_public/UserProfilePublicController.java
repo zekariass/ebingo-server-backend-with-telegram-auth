@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 
@@ -55,9 +56,10 @@ public class UserProfilePublicController {
         // Define transactional operator (you should already have it injected in the service/controller)
         TransactionalOperator operator = TransactionalOperator.create(transactionManager);
 
+        BigDecimal bonusAmount = BigDecimal.valueOf(10); // Example bonus amount for new wallets
         Mono<UserProfileDto> createUserAndWallet = userProfileService.createUserProfile(userProfileDto)
                 .flatMap(userProfile ->
-                        walletService.createWallet(UserProfileMapper.toEntity(userProfile))
+                        walletService.createWallet(UserProfileMapper.toEntity(userProfile), bonusAmount)
                                 .thenReturn(userProfile)
                 );
 

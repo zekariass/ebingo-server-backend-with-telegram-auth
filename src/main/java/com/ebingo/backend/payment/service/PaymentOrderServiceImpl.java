@@ -715,7 +715,7 @@ public class PaymentOrderServiceImpl implements PaymentOrderService {
     private Mono<WalletDto> getOrCreateWallet(UserProfileDto userProfileDto) {
         return walletService.getWalletByUserProfileId(userProfileDto.getId())
                 .switchIfEmpty(
-                        walletService.createWallet(UserProfileMapper.toEntity(userProfileDto))
+                        walletService.createWallet(UserProfileMapper.toEntity(userProfileDto), BigDecimal.ZERO)
                                 .doOnNext(w -> log.info("Created wallet for user {}", userProfileDto.getId()))
                 );
     }
