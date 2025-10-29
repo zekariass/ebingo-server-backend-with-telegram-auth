@@ -36,6 +36,9 @@ public class WalletServiceImpl implements WalletService {
 
         Wallet wallet = new Wallet();
         wallet.setUserProfileId(userProfile.getId());
+        wallet.setWelcomeBonus(bonusAmount);
+        wallet.setAvailableWelcomeBonus(bonusAmount);
+        wallet.setTotalAvailableBalance(bonusAmount);
 
         // Use reactive transaction operator
         TransactionalOperator operator = TransactionalOperator.create(transactionManager);

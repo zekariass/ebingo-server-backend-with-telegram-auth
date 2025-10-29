@@ -51,7 +51,7 @@ public class Wallet {
     private BigDecimal totalWithdrawal = BigDecimal.ZERO;
 
     @Column("total_available_balance") // The sum of all available balances
-    private BigDecimal totalAvailableBalance = BigDecimal.valueOf(20);
+    private BigDecimal totalAvailableBalance;
 
     @Column("available_to_withdraw") // The amount available for withdrawal
     private BigDecimal availableToWithdraw = BigDecimal.ZERO; // totalAvailableBalance - availableWelcomeBonus - availableReferralBonus
