@@ -141,6 +141,9 @@ public class WalletServiceImpl implements WalletService {
             wallet.setTotalAvailableBalance(totalAvailableBalance);
             wallet.setAvailableToWithdraw(availableToWithdraw);
 
+            log.info("✅ Credit complete for wallet {} (total available balance: {}, available to withdraw: {})",
+                    wallet.getId(), totalAvailableBalance, availableToWithdraw);
+
             // Save and return updated DTO
             return walletRepository.save(wallet)
                     .map(WalletMapper::toDto);

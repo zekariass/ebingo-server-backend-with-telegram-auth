@@ -43,6 +43,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -337,6 +338,9 @@ public class GameService {
                     String roomPlayersKey = RedisKeys.roomPlayersKey(roomId);
 
                     boolean gameStarted = state.isStarted();
+                    boolean gameEnded = state.isEnded();
+                    Instant gameCountdownEndTime = state.getCountdownEndTime();
+                    long timeLeft = Instant.now().until(gameCountdownEndTime, ChronoUnit.SECONDS);
 
                     if (gameStarted) {
                         // Already started → personal acknowledgement only
@@ -347,6 +351,37 @@ public class GameService {
                                         "payload", Map.of(
                                                 "errorType", "gameStarted",
                                                 "message", "Game already started.",
+                                                "userId", userId,
+                                                "gameId", gameId,
+                                                "roomId", roomId
+                                        )
+                                )).then();
+                    }
+
+                    if (gameEnded) {
+                        // Game already ended → personal acknowledgement only
+                        log.info("User {} tried to cancel, but game {} already ended", userId, gameId);
+                        return publisher.publishUserEvent(userId,
+                                Map.of(
+                                        "type", "game.playerLeft",
+                                        "payload", Map.of(
+                                                "errorType", "gameEnded",
+                                                "message", "Game already ended.",
+                                                "userId", userId,
+                                                "gameId", gameId,
+                                                "roomId", roomId
+                                        )
+                                )).then();
+                    }
+
+                    if (timeLeft < 10) {
+                        log.info("User {} tried to cancel, but game {} is almost starting", userId, gameId);
+                        return publisher.publishUserEvent(userId,
+                                Map.of(
+                                        "type", "game.playerLeft",
+                                        "payload", Map.of(
+                                                "errorType", "gameStarting",
+                                                "message", "Game is almost starting.",
                                                 "userId", userId,
                                                 "gameId", gameId,
                                                 "roomId", roomId
@@ -469,37 +504,36 @@ public class GameService {
                             .then(
                                     // After countdown, check player count again before starting
                                     Mono.defer(() ->
-                                                    gameStateService.getAllPlayers(gameId)
-                                                            .flatMap(state -> {
-                                                                int playersCount = state.size();
-                                                                log.info("Countdown finished. Players: {} / min: {}", playersCount, minPlayersToStart);
-                                                                if (playersCount >= minPlayersToStart) {
-                                                                    return startGame(gameId, roomId, userId, capacity);
-                                                                } else {
-                                                                    log.warn("Not enough players after countdown. Game {} will not start.", gameId);
+                                            gameStateService.getAllPlayers(gameId)
+                                                    .flatMap(state -> {
+                                                        int playersCount = state.size();
+                                                        log.info("Countdown finished. Players: {} / min: {}", playersCount, minPlayersToStart);
+                                                        if (playersCount >= minPlayersToStart) {
+                                                            return startGame(gameId, roomId, userId, capacity);
+                                                        } else {
+                                                            log.warn("Not enough players after countdown. Game {} will not start.", gameId);
 
-                                                                    return gameStateService.getGameState(roomId)
-                                                                            .flatMap(gState -> {
-                                                                                // Reset game state to READY
-                                                                                gState.setStatus(GameStatus.READY);
-                                                                                gState.setCountdownEndTime(null);
-                                                                                gState.setStatusUpdatedAt(Instant.now());
-                                                                                return gameStateService.saveGameStateToRedis(gState, roomId)
-                                                                                        .then(updateGameToDatabase(gState))
-                                                                                        .then(publisher.publishEvent(
-                                                                                                RedisKeys.roomChannel(roomId),
-                                                                                                Map.of(
-                                                                                                        "type", "game.state",
-                                                                                                        "payload", Map.of(
-                                                                                                                "roomId", roomId,
-                                                                                                                "gameState", gState
-                                                                                                        )
+                                                            return gameStateService.getGameState(roomId)
+                                                                    .flatMap(gState -> {
+                                                                        // Reset game state to READY
+                                                                        gState.setStatus(GameStatus.READY);
+                                                                        gState.setCountdownEndTime(null);
+                                                                        gState.setStatusUpdatedAt(Instant.now());
+                                                                        return gameStateService.saveGameStateToRedis(gState, roomId)
+                                                                                .then(updateGameToDatabase(gState))
+                                                                                .then(publisher.publishEvent(
+                                                                                        RedisKeys.roomChannel(roomId),
+                                                                                        Map.of(
+                                                                                                "type", "game.state",
+                                                                                                "payload", Map.of(
+                                                                                                        "roomId", roomId,
+                                                                                                        "gameState", gState
                                                                                                 )
-                                                                                        ));
-                                                                            }).then();
-//                                                            return Mono.empty();
-                                                                }
-                                                            })
+                                                                                        )
+                                                                                ));
+                                                                    }).then();
+                                                        }
+                                                    })
                                     )
                             );
                 }).then();
@@ -675,7 +709,7 @@ public class GameService {
                     .takeUntilOther(Mono.<Void>create(innerSink -> stopLoopSinks.put(roomId, innerSink)))
                     .doFinally(signal -> stopLoopSinks.remove(roomId))
                     .then(
-                            // 🧩 After drawing finishes, handle potential no-winner ending safely
+                            // After drawing finishes, handle potential no-winner ending safely
                             Mono.defer(() ->
                                     gameStateService.getGameState(roomId)
                                             .flatMap(latestState -> {

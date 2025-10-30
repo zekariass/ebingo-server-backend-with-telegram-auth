@@ -20,5 +20,6 @@ public class PaymentOrderRequestDto {
     private Long paymentMethodId; // e.g. ADDISPAY, TELEBIRR
     private String reason;
     private TransactionType txnType;
+    private String phoneNumber;
     private Map<String, Object> metadata;
 }

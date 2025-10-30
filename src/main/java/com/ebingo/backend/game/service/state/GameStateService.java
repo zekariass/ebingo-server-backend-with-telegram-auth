@@ -542,8 +542,6 @@ public class GameStateService {
                                     RedisKeys.roomCardsSetKey(roomId)
                             )
                             .map(count -> {
-
-                                log.info("========>>>>>>>========NUMBER OF DELETED KEYS===>>>>>>=============>>>: {}", count);
                                 return count > 0;
                             })
 

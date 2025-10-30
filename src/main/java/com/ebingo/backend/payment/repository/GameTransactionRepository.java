@@ -1,6 +1,7 @@
 package com.ebingo.backend.payment.repository;
 
 import com.ebingo.backend.payment.entity.GameTransaction;
+import com.ebingo.backend.payment.enums.GameTxnStatus;
 import com.ebingo.backend.payment.enums.GameTxnType;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
@@ -8,7 +9,17 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface GameTransactionRepository extends ReactiveCrudRepository<GameTransaction, Long> {
-    Mono<GameTransaction> findByPlayerIdAndGameIdAndTxnType(Long id, Long gameId, GameTxnType gameTxnType);
+
+    @Query(
+            "SELECT * FROM game_transaction " +
+                    "WHERE player_id = :id " +
+                    "AND game_id = :gameId " +
+                    "AND txn_type = :gameTxnType " +
+                    "AND txn_status = :txnStatus " +
+                    "ORDER BY id " +
+                    "DESC LIMIT 1"
+    )
+    Mono<GameTransaction> findByPlayerIdAndGameIdAndTxnTypeAndTxnStatus(Long id, Long gameId, GameTxnType gameTxnType, GameTxnStatus txnStatus);
 
     @Query(
             "SELECT * FROM game_transaction " +

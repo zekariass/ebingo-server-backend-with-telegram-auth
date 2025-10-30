@@ -71,33 +71,65 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
+//    @Override
+//    public Mono<Boolean> processRefund(Long telegramId, Long gameId) {
+//        return userProfileService.getUserProfileByTelegramId(telegramId)
+//                .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
+//                .flatMap(userProfile ->
+//                                gameTxnService.getTransactionByUserIdAndGameId(userProfile.getId(), gameId, GameTxnType.GAME_FEE)
+//                                        .switchIfEmpty(Mono.error(new ResourceNotFoundException("Original game transaction not found")))
+//                                        .flatMap(originalTxn ->
+////                                        walletRepository.findByUserProfileId(userProfile.getId())
+////                                                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Wallet not found")))
+////                                                .flatMap(wallet ->
+////                                                        walletService.credit(wallet, originalTxn.getTxnAmount(), GameTxnType.REFUND)
+////                                                                .then(
+//                                                        gameTxnService.createGameTransaction(
+//                                                                        userProfile.getId(),
+//                                                                        originalTxn.getTxnAmount(),
+//                                                                        GameTxnType.REFUND,
+//                                                                        gameId
+////                                                                )
+//                                                                )
+//                                                                .thenReturn(true)
+
+    /// /                                                )
+//                                        )
+//                )
+//                // Handle any error gracefully — return false instead of propagating
+//                .onErrorResume(ex -> {
+//                    log.error("Refund processing failed for gameId={}: {}", gameId, ex.getMessage());
+//                    return Mono.just(false);
+//                });
+//    }
     @Override
     public Mono<Boolean> processRefund(Long telegramId, Long gameId) {
         return userProfileService.getUserProfileByTelegramId(telegramId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User profile not found")))
                 .flatMap(userProfile ->
-                        gameTxnService.getTransactionByUserIdAndGameId(userProfile.getId(), gameId, GameTxnType.GAME_FEE)
+                        gameTxnService.getTransactionByUserIdAndGameId(
+                                        userProfile.getId(),
+                                        gameId,
+                                        GameTxnType.GAME_FEE
+                                )
                                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Original game transaction not found")))
                                 .flatMap(originalTxn ->
-                                        walletRepository.findByUserProfileId(userProfile.getId())
-                                                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Wallet not found")))
-                                                .flatMap(wallet ->
-                                                        walletService.credit(wallet, originalTxn.getTxnAmount(), GameTxnType.REFUND)
-                                                                .then(gameTxnService.createGameTransaction(
-                                                                        userProfile.getId(),
-                                                                        originalTxn.getTxnAmount(),
-                                                                        GameTxnType.REFUND,
-                                                                        gameId
-                                                                ))
-                                                                .thenReturn(true)
+                                        // Perform the refund transaction
+                                        gameTxnService.createGameTransaction(
+                                                        userProfile.getId(),
+                                                        originalTxn.getTxnAmount(),
+                                                        GameTxnType.REFUND,
+                                                        gameId
                                                 )
+                                                .thenReturn(true)
                                 )
                 )
-                // Handle any error gracefully — return false instead of propagating
                 .onErrorResume(ex -> {
-                    log.error("Refund processing failed for gameId={}: {}", gameId, ex.getMessage());
+                    log.error("Refund processing failed for telegramId={}, gameId={}, reason={}",
+                            telegramId, gameId, ex.getMessage());
                     return Mono.just(false);
                 });
     }
+
 
 }

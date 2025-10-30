@@ -90,7 +90,7 @@ public class GameTransactionServiceImpl implements GameTransactionService {
     @Override
     public Mono<GameTransactionDto> getTransactionByUserIdAndGameId(Long id, Long gameId, GameTxnType gameTxnType) {
         return gameTransactionRepository
-                .findByPlayerIdAndGameIdAndTxnType(id, gameId, gameTxnType)
+                .findByPlayerIdAndGameIdAndTxnTypeAndTxnStatus(id, gameId, gameTxnType, GameTxnStatus.SUCCESS)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException(
                         String.format("Game transaction not found for userId=%d, gameId=%d, type=%s",
                                 id, gameId, gameTxnType)

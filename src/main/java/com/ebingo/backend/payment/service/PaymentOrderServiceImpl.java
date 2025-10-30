@@ -69,6 +69,7 @@ public class PaymentOrderServiceImpl implements PaymentOrderService {
         order.setAmount(dto.getAmount());
         order.setReason(dto.getReason() != null ? dto.getReason() : "Deposit");
         order.setCurrency(dto.getCurrency() != null ? dto.getCurrency() : "ETB");
+        order.setPhoneNumber(normalizePhoneNumber(dto.getPhoneNumber()));
 
         return transactionalOperator.execute(status ->
                 userProfileService.getUserProfileByTelegramId(Long.parseLong(telegramUser.rawData().get("id").toString()))
@@ -80,7 +81,10 @@ public class PaymentOrderServiceImpl implements PaymentOrderService {
                                     .switchIfEmpty(Mono.error(new IllegalArgumentException("Payment method not found")))
                                     .flatMap(paymentMethod -> {
                                         order.setPaymentMethodId(paymentMethod.getId());
-                                        order.setPhoneNumber(user.getPhone());
+                                        if (order.getPhoneNumber() == null) {
+                                            // If the user did not provide a phone number, use the one from their profile
+                                            order.setPhoneNumber(user.getPhone());
+                                        }
                                         order.setInstructionsUrl(paymentMethod.getInstructionUrl());
 
                                         if (dto.getMetadata() != null) {
@@ -754,15 +758,23 @@ public class PaymentOrderServiceImpl implements PaymentOrderService {
 
 
     private String normalizePhoneNumber(String phoneNumber) {
-        if (phoneNumber.startsWith("+")) {
-            return phoneNumber.replace("+", "");
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            return phoneNumber;
         }
 
-        if (phoneNumber.startsWith("0")) {
-            return phoneNumber.replaceFirst("0", "251");
+        // Remove "+" if present
+        if (phoneNumber.startsWith("+")) {
+            return phoneNumber.replaceFirst("\\+", ""); // Escape "+" properly
         }
+
+        // Replace leading 0 with "251"
+        if (phoneNumber.startsWith("0")) {
+            return phoneNumber.replaceFirst("^0", "251");
+        }
+
         return phoneNumber;
     }
+
 
     /**
      * Utility: add with null-safety

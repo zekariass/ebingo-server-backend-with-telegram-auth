@@ -226,17 +226,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
         Map<String, Object> payload = msg.getPayload() != null ? msg.getPayload() : Map.of();
         Integer capacity = (Integer) payload.get("capacity");
 
-//        System.out.println(("============jjj===========>>> CAPACITY: " + capacity));
-
         switch (type) {
             case "room.getGameStateRequest":
                 log.info("Getting game state for user {} in room {}", userId, roomId);
                 return gameService.getOrInitializeGame(roomId, userId, capacity)
                         .flatMap(gs -> {
-
                                     Mono<Set<String>> userSelectedCardsIds = playerStateService.getPlayerCardIds(gs.getGameId(), userId); // Placeholder userId
-
-
                                     return userSelectedCardsIds
                                             .flatMap(userCardsIds -> {
                                                 gs.setUserSelectedCardsIds(userCardsIds);
