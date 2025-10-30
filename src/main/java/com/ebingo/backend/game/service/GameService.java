@@ -339,8 +339,17 @@ public class GameService {
 
                     boolean gameStarted = state.isStarted();
                     boolean gameEnded = state.isEnded();
+
                     Instant gameCountdownEndTime = state.getCountdownEndTime();
-                    long timeLeft = Instant.now().until(gameCountdownEndTime, ChronoUnit.SECONDS);
+                    long timeLeft = 15; // default to 15 seconds
+
+                    if (gameCountdownEndTime != null) {
+                        timeLeft = Instant.now().until(gameCountdownEndTime, ChronoUnit.SECONDS);
+                    } else {
+                        // Handle the case where countdown end time is missing
+                        log.warn("Countdown end time is null for game state: {}", state);
+                        // or some default value
+                    }
 
                     if (gameStarted) {
                         // Already started → personal acknowledgement only
