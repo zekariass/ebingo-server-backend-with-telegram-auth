@@ -181,7 +181,7 @@ public class GameService {
                 .flatMap(added -> {
                     if (added == 0L) {
                         log.info("User {} already joined game {}", userId, gameId);
-                        return afterSuccessfulJoin(roomId, gameId, userId, capacity);
+                        return afterSuccessfulJoin(roomId, gameId, userId, capacity, selectedCardIds);
                     }
 
                     // 1️⃣ Claim all cards in parallel
@@ -246,7 +246,7 @@ public class GameService {
                                             // ✅ Payment success → complete join
                                             paymentCompleted.set(true);
                                             log.info("Payment successful for user {} in game {}", userId, gameId);
-                                            return afterSuccessfulJoin(roomId, gameId, userId, capacity);
+                                            return afterSuccessfulJoin(roomId, gameId, userId, capacity, selectedCardIds);
                                         })
                                         .onErrorResume(error -> {
                                             log.error("Unexpected error during payment for user {}: {}", userId, error.getMessage(), error);
@@ -330,7 +330,7 @@ public class GameService {
     }
 
 
-    private Mono<Void> afterSuccessfulJoin(Long roomId, Long gameId, String userId, Integer capacity) {
+    private Mono<Void> afterSuccessfulJoin(Long roomId, Long gameId, String userId, Integer capacity, List<String> selectedCardIds) {
         log.info("afterSuccessfulJoin: user {} joined game {}", userId, gameId);
 
         return gameStateService.getGameState(roomId)
@@ -340,19 +340,20 @@ public class GameService {
                     Set<String> joinedPlayers = Optional.ofNullable(state.getJoinedPlayers()).orElse(Set.of());
                     int playersCount = joinedPlayers.size();
 
-                    return broadcastPlayerJoin(roomId, userId, joinedPlayers, playersCount)
+                    return broadcastPlayerJoin(roomId, userId, joinedPlayers, playersCount, selectedCardIds)
                             .then(startCountdownIfEligible(state, roomId, gameId, userId, capacity, playersCount));
                 });
     }
 
 
-    private Mono<Void> broadcastPlayerJoin(Long roomId, String userId, Set<String> joinedPlayers, int playersCount) {
+    private Mono<Void> broadcastPlayerJoin(Long roomId, String userId, Set<String> joinedPlayers, int playersCount, List<String> selectedCardIds) {
         Map<String, Object> payload = Map.of(
                 "type", "game.playerJoined",
                 "payload", Map.of(
                         "joinedPlayers", joinedPlayers,
                         "playerId", userId,
-                        "playersCount", playersCount
+                        "playersCount", playersCount,
+                        "playerSelectedCardIds", selectedCardIds
                 )
         );
 
