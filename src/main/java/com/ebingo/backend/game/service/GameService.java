@@ -643,7 +643,7 @@ public class GameService {
                                                                                 .then(publisher.publishEvent(
                                                                                         RedisKeys.roomChannel(roomId),
                                                                                         Map.of(
-                                                                                                "type", "game.state",
+                                                                                                "type", "game.notEnoughPlayers",
                                                                                                 "payload", Map.of(
                                                                                                         "roomId", roomId,
                                                                                                         "gameId", gameId,
