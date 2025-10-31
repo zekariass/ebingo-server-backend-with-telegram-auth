@@ -1,6 +1,5 @@
 package com.ebingo.backend.game.service;
 
-import com.ebingo.backend.game.service.state.GameStateService;
 import com.ebingo.backend.game.service.state.PlayerStateService;
 import com.ebingo.backend.system.redis.RedisKeys;
 import io.lettuce.core.RedisCommandTimeoutException;
@@ -30,7 +29,6 @@ public class CardSelectionService {
     private final RedisPublisher publisher;
     private final CardPoolService cardPoolService;
     private final PlayerStateService playerStateService;
-    private final GameStateService gameStateService;
 
 //    private static final String CLAIM_SCRIPT =
 //            "local ownerKey = KEYS[1] \n" +
@@ -146,36 +144,146 @@ public class CardSelectionService {
 //    }
 
 
+//    private static final String CLAIM_SCRIPT =
+//            "local ownerKey = KEYS[1]\n" +
+//                    "local userOwnedKey = KEYS[2]\n" +
+//                    "local cardLockKey = KEYS[3]\n" +
+//                    "local userLockKey = KEYS[4]\n" +
+//                    "local cardId = ARGV[1]\n" +
+//                    "local userId = ARGV[2]\n" +
+//                    "local maxPerUser = tonumber(ARGV[3])\n" +
+//                    "local lockTtl = tonumber(ARGV[4])\n" +
+//                    "\n" +
+//                    "-- Acquire card-level lock\n" +
+//                    "local cardLockAcquired = redis.call('set', cardLockKey, userId, 'NX', 'EX', lockTtl)\n" +
+//                    "if not cardLockAcquired then\n" +
+//                    "    local currentLocker = redis.call('get', cardLockKey)\n" +
+//                    "    if currentLocker ~= userId then\n" +
+//                    "        return 'CARD_LOCKED'\n" +
+//                    "    end\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Check if card already owned\n" +
+//                    "if redis.call('exists', ownerKey) == 1 then\n" +
+//                    "    redis.call('del', cardLockKey)\n" +
+//                    "    return 'CARD_TAKEN'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Acquire user-level lock\n" +
+//                    "local userLockAcquired = redis.call('set', userLockKey, '1', 'NX', 'EX', lockTtl)\n" +
+//                    "if not userLockAcquired then\n" +
+//                    "    redis.call('del', cardLockKey)\n" +
+//                    "    return 'USER_BUSY'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Enforce per-user card limit\n" +
+//                    "local count = redis.call('scard', userOwnedKey)\n" +
+//                    "if tonumber(count) >= maxPerUser then\n" +
+//                    "    redis.call('del', cardLockKey)\n" +
+//                    "    redis.call('del', userLockKey)\n" +
+//                    "    return 'USER_LIMIT'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Claim card\n" +
+//                    "redis.call('set', ownerKey, userId)\n" +
+//                    "redis.call('sadd', userOwnedKey, cardId)\n" +
+//                    "\n" +
+//                    "-- Cleanup locks\n" +
+//                    "redis.call('del', cardLockKey)\n" +
+//                    "redis.call('del', userLockKey)\n" +
+//                    "return 'OK'";
+
+
+//    private static final String CLAIM_SCRIPT =
+//            "local ownerKey = KEYS[1]\n" +
+//                    "local userOwnedKey = KEYS[2]\n" +
+//                    "local cardLockKey = KEYS[3]\n" +
+//                    "local userLockKey = KEYS[4]\n" +
+//                    "local cardId = ARGV[1]\n" +
+//                    "local userId = ARGV[2]\n" +
+//                    "local maxPerUser = tonumber(ARGV[3])\n" +
+//                    "local lockTtl = tonumber(ARGV[4])\n" +
+//                    "local cardTtl = tonumber(ARGV[5])\n" +  // new TTL for claimed cards
+//                    "\n" +
+//                    "-- Acquire card-level lock\n" +
+//                    "local cardLockAcquired = redis.call('set', cardLockKey, userId, 'NX', 'EX', lockTtl)\n" +
+//                    "if not cardLockAcquired then\n" +
+//                    "    local currentLocker = redis.call('get', cardLockKey)\n" +
+//                    "    if currentLocker ~= userId then\n" +
+//                    "        return 'CARD_LOCKED'\n" +
+//                    "    end\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Check if card already owned\n" +
+//                    "if redis.call('exists', ownerKey) == 1 then\n" +
+//                    "    redis.call('del', cardLockKey)\n" +
+//                    "    return 'CARD_TAKEN'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Acquire user-level lock\n" +
+//                    "local userLockAcquired = redis.call('set', userLockKey, '1', 'NX', 'EX', lockTtl)\n" +
+//                    "if not userLockAcquired then\n" +
+//                    "    redis.call('del', cardLockKey)\n" +
+//                    "    return 'USER_BUSY'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Enforce per-user card limit\n" +
+//                    "local count = redis.call('scard', userOwnedKey)\n" +
+//                    "if tonumber(count) >= maxPerUser then\n" +
+//                    "    redis.call('del', cardLockKey)\n" +
+//                    "    redis.call('del', userLockKey)\n" +
+//                    "    return 'USER_LIMIT'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Claim card with expiration\n" +
+//                    "redis.call('set', ownerKey, userId, 'EX', cardTtl)\n" +
+//                    "redis.call('sadd', userOwnedKey, cardId)\n" +
+//                    "redis.call('expire', userOwnedKey, cardTtl)\n" +
+//                    "\n" +
+//                    "-- Cleanup locks\n" +
+//                    "redis.call('del', cardLockKey)\n" +
+//                    "redis.call('del', userLockKey)\n" +
+//                    "return 'OK'";
+
+
     private static final String CLAIM_SCRIPT =
             "local ownerKey = KEYS[1]\n" +
                     "local userOwnedKey = KEYS[2]\n" +
                     "local cardLockKey = KEYS[3]\n" +
                     "local userLockKey = KEYS[4]\n" +
+                    "\n" +
                     "local cardId = ARGV[1]\n" +
                     "local userId = ARGV[2]\n" +
                     "local maxPerUser = tonumber(ARGV[3])\n" +
                     "local lockTtl = tonumber(ARGV[4])\n" +
+                    "local cardTtl = tonumber(ARGV[5])\n" +
                     "\n" +
-                    "-- Acquire card-level lock\n" +
+                    "-- Acquire or refresh card-level lock\n" +
                     "local cardLockAcquired = redis.call('set', cardLockKey, userId, 'NX', 'EX', lockTtl)\n" +
                     "if not cardLockAcquired then\n" +
                     "    local currentLocker = redis.call('get', cardLockKey)\n" +
                     "    if currentLocker ~= userId then\n" +
                     "        return 'CARD_LOCKED'\n" +
                     "    end\n" +
+                    "    redis.call('expire', cardLockKey, lockTtl)\n" +
                     "end\n" +
                     "\n" +
                     "-- Check if card already owned\n" +
                     "if redis.call('exists', ownerKey) == 1 then\n" +
                     "    redis.call('del', cardLockKey)\n" +
+                    "    redis.call('del', userLockKey)\n" +
                     "    return 'CARD_TAKEN'\n" +
                     "end\n" +
                     "\n" +
-                    "-- Acquire user-level lock\n" +
-                    "local userLockAcquired = redis.call('set', userLockKey, '1', 'NX', 'EX', lockTtl)\n" +
+                    "-- Acquire or refresh user-level lock\n" +
+                    "local userLockAcquired = redis.call('set', userLockKey, userId, 'NX', 'EX', lockTtl)\n" +
                     "if not userLockAcquired then\n" +
-                    "    redis.call('del', cardLockKey)\n" +
-                    "    return 'USER_BUSY'\n" +
+                    "    local currentUserLocker = redis.call('get', userLockKey)\n" +
+                    "    if currentUserLocker ~= userId then\n" +
+                    "        redis.call('del', cardLockKey)\n" +
+                    "        return 'USER_BUSY'\n" +
+                    "    end\n" +
+                    "    redis.call('expire', userLockKey, lockTtl)\n" +
                     "end\n" +
                     "\n" +
                     "-- Enforce per-user card limit\n" +
@@ -186,48 +294,196 @@ public class CardSelectionService {
                     "    return 'USER_LIMIT'\n" +
                     "end\n" +
                     "\n" +
-                    "-- Claim card\n" +
-                    "redis.call('set', ownerKey, userId)\n" +
+                    "-- Claim the card (with TTL)\n" +
+                    "redis.call('set', ownerKey, userId, 'EX', cardTtl)\n" +
                     "redis.call('sadd', userOwnedKey, cardId)\n" +
                     "\n" +
                     "-- Cleanup locks\n" +
                     "redis.call('del', cardLockKey)\n" +
                     "redis.call('del', userLockKey)\n" +
+                    "\n" +
                     "return 'OK'";
+
+
+//    private static final RedisScript<String> SCRIPT = RedisScript.of(CLAIM_SCRIPT, String.class);
+//
+//    public Mono<Void> claimCard(Long roomId, Long gameId, String userId, String cardId, int maxCardsPerPlayer) {
+//        if (cardId == null) {
+//            log.info("Cannot claim card: cardId is null for user {} in room {}", userId, roomId);
+//            return publishCardError(roomId, userId, null, "Card ID cannot be null", "INVALID_CARD_ID");
+//        }
+//
+//        final String ownerKey = RedisKeys.cardOwnerKey(gameId, cardId);
+//        final String userOwnedCardsKey = RedisKeys.userOwnedCardsKey(gameId, userId);
+//        final String cardLockKey = RedisKeys.cardLockKey(gameId, cardId);
+//        final String userLockKey = RedisKeys.userLockKey(gameId, userId);
+//        final int lockTtlSeconds = 10; // slightly longer to avoid premature expiry
+//
+//        return cardPoolService.cardExistInRoom(cardId, roomId)
+//                .flatMap(exist -> {
+//                    if (!exist) {
+//                        return publishCardError(roomId, userId, cardId, "Card does not exist!", "CARD_DOES_NOT_EXIST");
+//                    }
+//
+//                    // Execute Lua claim script
+//                    return redis.execute(
+//                                    SCRIPT,
+//                                    List.of(ownerKey, userOwnedCardsKey, cardLockKey, userLockKey),
+//                                    cardId, userId,
+//                                    String.valueOf(maxCardsPerPlayer),
+//                                    String.valueOf(lockTtlSeconds)
+//                            )
+//                            .next()
+//                            .flatMap(result -> {
+//                                if (result == null) {
+//                                    log.error("Card claim returned null for user {} card {}", userId, cardId);
+//                                    return publishCardError(roomId, userId, cardId, "Claim operation failed", "UNKNOWN_ERROR");
+//                                }
+//
+//                                switch (result) {
+//                                    case "OK":
+//                                        return cardPoolService.getCard(roomId, cardId)
+//                                                .flatMap(card ->
+//                                                        playerStateService.savePlayerCard(gameId, userId, cardId, card)
+//                                                                .doOnSuccess(v -> log.info("User {} saved card {} in game {}", userId, cardId, gameId))
+//                                                                .then(playerStateService.addPlayerCardId(gameId, userId, cardId)
+//                                                                        .doOnSuccess(v -> log.info("Added cardId {} to player {} in game {}", cardId, userId, gameId)))
+//                                                                .then(playerStateService.addToAllPlayersSelectedCardsIds(gameId, cardId)
+//                                                                        .doOnSuccess(v -> log.info("Added cardId {} to all players selected list", cardId)))
+//                                                                .then(cardPoolService.addSelectedCard(gameId, cardId))
+//                                                                .flatMap(selectedCards -> publishSuccess(roomId, cardId, userId, selectedCards))
+//                                                )
+//                                                .doFinally(signal -> log.info("Completed claim for user {} card {} room {}", userId, cardId, roomId));
+//
+//                                    case "CARD_TAKEN":
+//                                        return publishCardError(roomId, userId, cardId, "Card is already taken", "CARD_TAKEN");
+//
+//                                    case "USER_LIMIT":
+//                                        return publishCardError(roomId, userId, cardId, "You have reached the maximum number of cards", "USER_LIMIT");
+//
+//                                    case "USER_BUSY":
+//                                        return publishCardError(roomId, userId, cardId, "Please wait before making another selection", "USER_BUSY");
+//
+//                                    case "CARD_LOCKED":
+//                                        return publishCardError(roomId, userId, cardId, "Card is being claimed by another user", "CARD_LOCKED");
+//
+//                                    default:
+//                                        return publishCardError(roomId, userId, cardId, "Unexpected error: " + result, "UNKNOWN_ERROR");
+//                                }
+//                            })
+//                            .onErrorResume(err -> {
+//                                log.error("Error claiming card {} for user {} room {}: {}", cardId, userId, roomId, err.getMessage(), err);
+//                                return cleanupLocks(roomId, cardId, userId)
+//                                        .then(publishCardError(roomId, userId, cardId, "Internal server error", "UNKNOWN_ERROR"));
+//                            });
+//                });
+//    }
+
+
+//    private static final RedisScript<String> SCRIPT = RedisScript.of(CLAIM_SCRIPT, String.class);
+//
+//    public Mono<Void> claimCard(Long roomId, Long gameId, String userId, String cardId, int maxCardsPerPlayer) {
+//        if (cardId == null) {
+//            log.info("Cannot claim card: cardId is null for user {} in room {}", userId, roomId);
+//            return publishCardError(roomId, userId, null, "Card ID cannot be null", "INVALID_CARD_ID");
+//        }
+//
+//        final String ownerKey = RedisKeys.cardOwnerKey(gameId, cardId);
+//        final String userOwnedCardsKey = RedisKeys.userOwnedCardsKey(gameId, userId);
+//        final String cardLockKey = RedisKeys.cardLockKey(gameId, cardId);
+//        final String userLockKey = RedisKeys.userLockKey(gameId, userId);
+//
+//        final int lockTtlSeconds = 10;  // short lock lifetime
+//        final int cardTtlSeconds = 600;  // card expires after 1 minute (change to 600 for 10 min)
+//
+//        return cardPoolService.cardExistInRoom(cardId, roomId)
+//                .flatMap(exist -> {
+//                    if (!exist) {
+//                        return publishCardError(roomId, userId, cardId, "Card does not exist!", "CARD_DOES_NOT_EXIST");
+//                    }
+//
+//                    return redis.execute(
+//                                    SCRIPT,
+//                                    List.of(ownerKey, userOwnedCardsKey, cardLockKey, userLockKey),
+//                                    cardId, userId,
+//                                    String.valueOf(maxCardsPerPlayer),
+//                                    String.valueOf(lockTtlSeconds),
+//                                    String.valueOf(cardTtlSeconds)
+//                            )
+//                            .next()
+//                            .flatMap(result -> {
+//                                if (result == null) {
+//                                    log.error("Card claim returned null for user {} card {}", userId, cardId);
+//                                    return publishCardError(roomId, userId, cardId, "Claim operation failed", "UNKNOWN_ERROR");
+//                                }
+//
+//                                switch (result) {
+//                                    case "OK":
+//                                        return cardPoolService.getCard(roomId, cardId)
+//                                                .flatMap(card ->
+//                                                        playerStateService.savePlayerCard(gameId, userId, cardId, card)
+//                                                                .then(playerStateService.addPlayerCardId(gameId, userId, cardId))
+//                                                                .then(playerStateService.addToAllPlayersSelectedCardsIds(gameId, cardId))
+//                                                                .then(cardPoolService.addSelectedCard(gameId, cardId))
+//                                                                .flatMap(selectedCards -> publishSuccess(roomId, cardId, userId, selectedCards))
+//                                                );
+//
+//                                    case "CARD_TAKEN":
+//                                        return publishCardError(roomId, userId, cardId, "Card is already taken", "CARD_TAKEN");
+//                                    case "USER_LIMIT":
+//                                        return publishCardError(roomId, userId, cardId, "You have reached the maximum number of cards", "USER_LIMIT");
+//                                    case "USER_BUSY":
+//                                        return publishCardError(roomId, userId, cardId, "Please wait before making another selection", "USER_BUSY");
+//                                    case "CARD_LOCKED":
+//                                        return publishCardError(roomId, userId, cardId, "Card is being claimed by another user", "CARD_LOCKED");
+//                                    default:
+//                                        return publishCardError(roomId, userId, cardId, "Unexpected error: " + result, "UNKNOWN_ERROR");
+//                                }
+//                            })
+//                            .onErrorResume(err -> {
+//                                log.error("Error claiming card {} for user {} room {}: {}", cardId, userId, roomId, err.getMessage(), err);
+//                                return cleanupLocks(roomId, cardId, userId)
+//                                        .then(publishCardError(roomId, userId, cardId, "Internal server error", "UNKNOWN_ERROR"));
+//                            });
+//                });
+//    }
+
 
     private static final RedisScript<String> SCRIPT = RedisScript.of(CLAIM_SCRIPT, String.class);
 
-    public Mono<Void> claimCard(Long roomId, Long gameId, String userId, String cardId, int maxCardsPerPlayer) {
+    public Mono<String> claimCard(Long roomId, Long gameId, String userId, String cardId, int maxCardsPerPlayer) {
         if (cardId == null) {
             log.info("Cannot claim card: cardId is null for user {} in room {}", userId, roomId);
-            return publishCardError(roomId, userId, null, "Card ID cannot be null", "INVALID_CARD_ID");
+            return Mono.just("Card ID cannot be null");
         }
 
         final String ownerKey = RedisKeys.cardOwnerKey(gameId, cardId);
         final String userOwnedCardsKey = RedisKeys.userOwnedCardsKey(gameId, userId);
         final String cardLockKey = RedisKeys.cardLockKey(gameId, cardId);
         final String userLockKey = RedisKeys.userLockKey(gameId, userId);
-        final int lockTtlSeconds = 10; // slightly longer to avoid premature expiry
+
+        final int lockTtlSeconds = 10;  // short lock lifetime
+        final int cardTtlSeconds = 600;  // card expires after 1 minute (change to 600 for 10 min)
 
         return cardPoolService.cardExistInRoom(cardId, roomId)
                 .flatMap(exist -> {
                     if (!exist) {
-                        return publishCardError(roomId, userId, cardId, "Card does not exist!", "CARD_DOES_NOT_EXIST");
+                        return Mono.just("CARD_DOES_NOT_EXIST");
                     }
 
-                    // Execute Lua claim script
                     return redis.execute(
                                     SCRIPT,
                                     List.of(ownerKey, userOwnedCardsKey, cardLockKey, userLockKey),
                                     cardId, userId,
                                     String.valueOf(maxCardsPerPlayer),
-                                    String.valueOf(lockTtlSeconds)
+                                    String.valueOf(lockTtlSeconds),
+                                    String.valueOf(cardTtlSeconds)
                             )
                             .next()
                             .flatMap(result -> {
                                 if (result == null) {
                                     log.error("Card claim returned null for user {} card {}", userId, cardId);
-                                    return publishCardError(roomId, userId, cardId, "Claim operation failed", "UNKNOWN_ERROR");
+                                    return Mono.just("Claim operation failed");
                                 }
 
                                 switch (result) {
@@ -235,80 +491,124 @@ public class CardSelectionService {
                                         return cardPoolService.getCard(roomId, cardId)
                                                 .flatMap(card ->
                                                         playerStateService.savePlayerCard(gameId, userId, cardId, card)
-                                                                .doOnSuccess(v -> log.info("User {} saved card {} in game {}", userId, cardId, gameId))
-                                                                .then(playerStateService.addPlayerCardId(gameId, userId, cardId)
-                                                                        .doOnSuccess(v -> log.info("Added cardId {} to player {} in game {}", cardId, userId, gameId)))
-                                                                .then(playerStateService.addToAllPlayersSelectedCardsIds(gameId, cardId)
-                                                                        .doOnSuccess(v -> log.info("Added cardId {} to all players selected list", cardId)))
+                                                                .then(playerStateService.addPlayerCardId(gameId, userId, cardId))
+                                                                .then(playerStateService.addToAllPlayersSelectedCardsIds(gameId, cardId))
                                                                 .then(cardPoolService.addSelectedCard(gameId, cardId))
-                                                                .flatMap(selectedCards -> publishSuccess(roomId, cardId, userId, selectedCards))
-                                                )
-                                                .doFinally(signal -> log.info("Completed claim for user {} card {} room {}", userId, cardId, roomId));
+                                                                .thenReturn("OK")
+                                                );
 
                                     case "CARD_TAKEN":
-                                        return publishCardError(roomId, userId, cardId, "Card is already taken", "CARD_TAKEN");
-
+                                        return Mono.just("Card is already taken");
                                     case "USER_LIMIT":
-                                        return publishCardError(roomId, userId, cardId, "You have reached the maximum number of cards", "USER_LIMIT");
-
+                                        return Mono.just("You have reached the maximum number of cards");
                                     case "USER_BUSY":
-                                        return publishCardError(roomId, userId, cardId, "Please wait before making another selection", "USER_BUSY");
-
+                                        return Mono.just("Please wait before making another selection");
                                     case "CARD_LOCKED":
-                                        return publishCardError(roomId, userId, cardId, "Card is being claimed by another user", "CARD_LOCKED");
-
+                                        return Mono.just("Card is being claimed by another user");
                                     default:
-                                        return publishCardError(roomId, userId, cardId, "Unexpected error: " + result, "UNKNOWN_ERROR");
+                                        return Mono.just("Unexpected error: " + result);
                                 }
                             })
                             .onErrorResume(err -> {
                                 log.error("Error claiming card {} for user {} room {}: {}", cardId, userId, roomId, err.getMessage(), err);
                                 return cleanupLocks(roomId, cardId, userId)
-                                        .then(publishCardError(roomId, userId, cardId, "Internal server error", "UNKNOWN_ERROR"));
+                                        .then(Mono.just("Internal server error"));
                             });
                 });
     }
 
 
+//    private static final String RELEASE_SCRIPT =
+//            "local ownerKey = KEYS[1] \n" +
+//                    "local userOwnedKey = KEYS[2] \n" +
+//                    "local cardLockKey = KEYS[3] \n" +
+//                    "local userLockKey = KEYS[4] \n" +
+//                    "local cardId = ARGV[1] \n" +
+//                    "local userId = ARGV[2] \n" +
+//                    "local lockTtl = tonumber(ARGV[3]) \n" +
+//                    "\n" +
+//                    "-- Check if user actually owns this card first (no locks needed for read)\n" +
+//                    "local currentOwner = redis.call('get', ownerKey)\n" +
+//                    "if currentOwner == false then\n" +
+//                    "    return 'CARD_NOT_OWNED'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "if currentOwner ~= userId then\n" +
+//                    "    return 'NOT_OWNER'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Acquire locks only if verification passes\n" +
+//                    "local cardLockAcquired = redis.call('set', cardLockKey, userId, 'NX', 'EX', lockTtl)\n" +
+//                    "if not cardLockAcquired then\n" +
+//                    "    return 'CARD_LOCKED'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "local userLockAcquired = redis.call('set', userLockKey, '1', 'NX', 'EX', lockTtl)\n" +
+//                    "if not userLockAcquired then\n" +
+//                    "    redis.call('del', cardLockKey)\n" +
+//                    "    return 'USER_BUSY'\n" +
+//                    "end\n" +
+//                    "\n" +
+//                    "-- Perform the release operation\n" +
+//                    "redis.call('del', ownerKey)\n" +
+//                    "redis.call('srem', userOwnedKey, cardId)\n" +
+//                    "\n" +
+//                    "-- Release locks\n" +
+//                    "redis.call('del', cardLockKey)\n" +
+//                    "redis.call('del', userLockKey)\n" +
+//                    "return 'OK'";
+
+
     private static final String RELEASE_SCRIPT =
-            "local ownerKey = KEYS[1] \n" +
-                    "local userOwnedKey = KEYS[2] \n" +
-                    "local cardLockKey = KEYS[3] \n" +
-                    "local userLockKey = KEYS[4] \n" +
-                    "local cardId = ARGV[1] \n" +
-                    "local userId = ARGV[2] \n" +
-                    "local lockTtl = tonumber(ARGV[3]) \n" +
+            "local ownerKey = KEYS[1]\n" +
+                    "local userOwnedKey = KEYS[2]\n" +
+                    "local cardLockKey = KEYS[3]\n" +
+                    "local userLockKey = KEYS[4]\n" +
                     "\n" +
-                    "-- Check if user actually owns this card first (no locks needed for read)\n" +
+                    "local cardId = ARGV[1]\n" +
+                    "local userId = ARGV[2]\n" +
+                    "local lockTtl = tonumber(ARGV[3])\n" +
+                    "\n" +
+                    "-- Verify ownership first (no locks needed yet)\n" +
                     "local currentOwner = redis.call('get', ownerKey)\n" +
-                    "if currentOwner == false then\n" +
+                    "if not currentOwner then\n" +
                     "    return 'CARD_NOT_OWNED'\n" +
                     "end\n" +
-                    "\n" +
                     "if currentOwner ~= userId then\n" +
                     "    return 'NOT_OWNER'\n" +
                     "end\n" +
                     "\n" +
-                    "-- Acquire locks only if verification passes\n" +
+                    "-- Acquire or refresh card-level lock\n" +
                     "local cardLockAcquired = redis.call('set', cardLockKey, userId, 'NX', 'EX', lockTtl)\n" +
                     "if not cardLockAcquired then\n" +
-                    "    return 'CARD_LOCKED'\n" +
+                    "    local currentLocker = redis.call('get', cardLockKey)\n" +
+                    "    if currentLocker ~= userId then\n" +
+                    "        return 'CARD_LOCKED'\n" +
+                    "    end\n" +
+                    "    redis.call('expire', cardLockKey, lockTtl)\n" +
                     "end\n" +
                     "\n" +
-                    "local userLockAcquired = redis.call('set', userLockKey, '1', 'NX', 'EX', lockTtl)\n" +
+                    "-- Acquire or refresh user-level lock\n" +
+                    "local userLockAcquired = redis.call('set', userLockKey, userId, 'NX', 'EX', lockTtl)\n" +
                     "if not userLockAcquired then\n" +
-                    "    redis.call('del', cardLockKey)\n" +
-                    "    return 'USER_BUSY'\n" +
+                    "    local currentLocker = redis.call('get', userLockKey)\n" +
+                    "    if currentLocker ~= userId then\n" +
+                    "        redis.call('del', cardLockKey)\n" +
+                    "        return 'USER_BUSY'\n" +
+                    "    end\n" +
+                    "    redis.call('expire', userLockKey, lockTtl)\n" +
                     "end\n" +
                     "\n" +
-                    "-- Perform the release operation\n" +
+                    "-- Perform release atomically\n" +
                     "redis.call('del', ownerKey)\n" +
                     "redis.call('srem', userOwnedKey, cardId)\n" +
                     "\n" +
-                    "-- Release locks\n" +
+                    "-- Cleanup locks\n" +
                     "redis.call('del', cardLockKey)\n" +
                     "redis.call('del', userLockKey)\n" +
+                    "\n" +
                     "return 'OK'";
+
 
     private static final RedisScript<String> RELEASE_SCRIPT_OBJ = RedisScript.of(RELEASE_SCRIPT, String.class);
 
@@ -462,26 +762,26 @@ public class CardSelectionService {
     }
 
 
-    public Mono<Void> claimCardWithRetry(Long roomId, Long gameId, String userId, String cardId, int maxCardsPerPlayer) {
-        return Mono.defer(() -> claimCard(roomId, gameId, userId, cardId, maxCardsPerPlayer))
-                .retryWhen(reactor.util.retry.Retry.backoff(3, Duration.ofMillis(200))
-                        .filter(err -> {
-                            String errorMsg = err.getMessage();
-                            return errorMsg != null &&
-                                    (errorMsg.contains("CARD_LOCKED") ||
-                                            errorMsg.contains("USER_BUSY"));
-                        })
-                        .doAfterRetry(retrySignal ->
-                                log.debug("Retrying card claim for user {} card {} (attempt {})",
-                                        userId, cardId, retrySignal.totalRetries() + 1)
-                        )
-                )
-                .onErrorResume(err -> {
-                    log.warn("Failed to claim card {} for user {} after retries: {}",
-                            cardId, userId, err.getMessage());
-                    return publishCardError(roomId, userId, cardId, "Could not claim card, please try again", "RETRY_FAILED");
-                });
-    }
+//    public Mono<Void> claimCardWithRetry(Long roomId, Long gameId, String userId, String cardId, int maxCardsPerPlayer) {
+//        return Mono.defer(() -> claimCard(roomId, gameId, userId, cardId, maxCardsPerPlayer))
+//                .retryWhen(reactor.util.retry.Retry.backoff(3, Duration.ofMillis(200))
+//                        .filter(err -> {
+//                            String errorMsg = err.getMessage();
+//                            return errorMsg != null &&
+//                                    (errorMsg.contains("CARD_LOCKED") ||
+//                                            errorMsg.contains("USER_BUSY"));
+//                        })
+//                        .doAfterRetry(retrySignal ->
+//                                log.debug("Retrying card claim for user {} card {} (attempt {})",
+//                                        userId, cardId, retrySignal.totalRetries() + 1)
+//                        )
+//                )
+//                .onErrorResume(err -> {
+//                    log.warn("Failed to claim card {} for user {} after retries: {}",
+//                            cardId, userId, err.getMessage());
+//                    return publishCardError(roomId, userId, cardId, "Could not claim card, please try again", "RETRY_FAILED");
+//                });
+//    }
 
     private Mono<Void> publishCardError(Long roomId, String userId, String cardId, String message, String errorType) {
         return publisher.publishUserEvent(userId,

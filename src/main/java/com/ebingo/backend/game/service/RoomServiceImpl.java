@@ -4,6 +4,7 @@ import com.ebingo.backend.game.dto.RoomCreateDto;
 import com.ebingo.backend.game.dto.RoomDto;
 import com.ebingo.backend.game.dto.RoomUpdateDto;
 import com.ebingo.backend.game.entity.Room;
+import com.ebingo.backend.game.enums.RoomStatus;
 import com.ebingo.backend.game.mappers.RoomMapper;
 import com.ebingo.backend.game.repository.RoomRepository;
 import com.ebingo.backend.game.service.state.GameStateService;
@@ -67,7 +68,7 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public Flux<RoomDto> getAllRooms() {
-        return roomRepository.findAll()
+        return roomRepository.findByStatus(RoomStatus.OPEN)
                 .doOnSubscribe(s -> log.info("Fetching all rooms"))
                 .map(RoomMapper::toDto)
                 .doOnNext(dto -> log.debug("Mapped room: {}", dto))

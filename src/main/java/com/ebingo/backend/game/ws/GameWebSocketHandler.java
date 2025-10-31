@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -262,7 +263,10 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 BigDecimal fee3 = (payload.get("fee") != null) ? BigDecimal.valueOf(Double.parseDouble(payload.get("fee").toString())) : null;
                 Integer capacity3 = (payload.get("capacity") != null) ? Integer.parseInt(payload.get("capacity").toString()) : 100;
                 String userId3 = (payload.get("playerId") != null) ? payload.get("playerId").toString() : null;
-                return gameService.playerJoin(roomId, gameEventId3, userId3, capacity3, fee3).then();
+                List<String> selectedCardIds = (payload.get("userSelectedCardsIds") != null)
+                        ? (List<String>) payload.get("userSelectedCardsIds")
+                        : List.of();
+                return gameService.playerJoin(roomId, gameEventId3, userId3, capacity3, fee3, selectedCardIds).then();
 
             case "game.playerLeaveRequest":
                 Long gameEventId4 = (payload.get("gameId") != null) ? Long.valueOf(payload.get("gameId").toString()) : null;

@@ -69,6 +69,7 @@ public class GameService {
     private final GameTransactionService gameTransactionService;
     private final GameRepository gameRepository;
     private final RoomRepository roomRepository;
+    private final CardSelectionService cardSelectionService;
 
 
     // Stop signal sinks per room
@@ -82,7 +83,7 @@ public class GameService {
     @Value("${game.countdown.initialInSeconds:30}")
     private Integer initialCountdownSeconds;
 
-    public GameService(RedisPublisher publisher, CardPoolService cardPoolService, BingoPatternVerifier patternVerifier, PlayerStateService playerStateService, GameStateService gameStateService, PaymentService paymentService, ReactiveSetOperations<String, String> setOps, PlayerCleanupService playerCleanupService, ReactiveStringRedisTemplate reactiveRedisTemplate1, ReactiveRedisMessageListenerContainer redisListenerContainer, BingoClaimService bingoClaimService, ObjectMapper objectMapper, GameTransactionService gameTransactionService, GameRepository gameRepository, RoomRepository roomRepository) {
+    public GameService(RedisPublisher publisher, CardPoolService cardPoolService, BingoPatternVerifier patternVerifier, PlayerStateService playerStateService, GameStateService gameStateService, PaymentService paymentService, ReactiveSetOperations<String, String> setOps, PlayerCleanupService playerCleanupService, ReactiveStringRedisTemplate reactiveRedisTemplate1, ReactiveRedisMessageListenerContainer redisListenerContainer, BingoClaimService bingoClaimService, ObjectMapper objectMapper, GameTransactionService gameTransactionService, GameRepository gameRepository, RoomRepository roomRepository, CardSelectionService cardSelectionService) {
         this.publisher = publisher;
         this.cardPoolService = cardPoolService;
         this.patternVerifier = patternVerifier;
@@ -98,74 +99,181 @@ public class GameService {
         this.gameTransactionService = gameTransactionService;
         this.gameRepository = gameRepository;
         this.roomRepository = roomRepository;
+        this.cardSelectionService = cardSelectionService;
     }
 
     /**
      * Player joins game and optionally selects a card
      */
-    public Mono<Void> playerJoin(Long roomId, Long gameId, String userId, Integer capacity, BigDecimal entryFee) {
+//    public Mono<Void> playerJoin(Long roomId, Long gameId, String userId, Integer capacity, BigDecimal entryFee, List<String> selectedCardIds) {
+//
+//        log.info("===================USER SELECTED CARDS===================>>>>>: {}", selectedCardIds);
+//
+//        String playersKey = RedisKeys.gamePlayersKey(gameId);
+//        AtomicBoolean paymentCompleted = new AtomicBoolean(false);
+//
+//        log.info("User {} is joining game {}", userId, gameId);
+//
+//        Mono<String> claimedCardsMono = cardSelectionService.claimCard(roomId, gameId, userId, selectedCardIds, 2);
+//
+//        return setOps.add(playersKey, userId) // SADD → 1=new user, 0=already joined
+//                .flatMap(added -> {
+//                    if (added == 0L) {
+//                        // Already joined → just send existing state
+//                        log.info("User {} is already joined in game {}", userId, gameId);
+//                        return afterSuccessfulJoin(roomId, gameId, userId, capacity);
+//                    }
+//
+//                    // New join → attempt payment
+//                    return paymentService.processPayment((Long.parseLong(userId)), entryFee, gameId)
+//                            .flatMap(paymentSuccess -> {
+//                                if (!paymentSuccess) {
+//                                    // Payment failed → rollback membership
+//                                    return setOps.remove(playersKey, userId)
+//                                            .then(publisher.publishUserEvent(userId,
+//                                                    Map.of(
+//                                                            "type", "error",
+//                                                            "payload", Map.of(
+//                                                                    "eventType", "game.playerJoinRequest",
+//                                                                    "errorType", "paymentFailed",
+//                                                                    "message", "Payment failed for user " + userId,
+//                                                                    "amount", entryFee
+//                                                            )
+//                                                    )))
+//                                            .then(Mono.error(new PaymentFailedException(Long.parseLong(userId), entryFee)));
+//                                }
+//
+//                                paymentCompleted.set(true);
+//                                log.info("Payment complete for user {} in game {}", userId, gameId);
+//
+//                                // After payment success → complete join
+//                                return afterSuccessfulJoin(roomId, gameId, userId, capacity);
+//                            })
+//                            .onErrorResume(error -> {
+//                                // Rollback membership on unexpected errors after payment
+//                                log.error("Join failed for user {}: {}", userId, error.getMessage(), error);
+//                                if (paymentCompleted.get()) {
+//                                    return paymentService.processRefund(Long.parseLong(userId), gameId)
+//                                            .onErrorResume(refundErr -> {
+//                                                log.error("Refund failed for user {}: {}", userId, refundErr.getMessage(), refundErr);
+//                                                return Mono.empty(); // ignore refund error
+//                                            })
+//                                            .then(setOps.remove(playersKey, userId))
+//                                            .then();
+//
+//                                }
+//                                return setOps.remove(playersKey, userId).then();
+//                            });
+//                });
+//    }
+
+
+//    =========================================================
+    public Mono<Void> playerJoin(Long roomId, Long gameId, String userId, Integer capacity,
+                                 BigDecimal entryFee, List<String> selectedCardIds) {
+
+        log.info("===== USER {} SELECTED CARDS FOR GAME {} ===== {}", userId, gameId, selectedCardIds);
+
         String playersKey = RedisKeys.gamePlayersKey(gameId);
         AtomicBoolean paymentCompleted = new AtomicBoolean(false);
 
-        log.info("User {} is joining game {}", userId, gameId);
-
-        return setOps.add(playersKey, userId) // SADD → 1=new user, 0=already joined
+        return setOps.add(playersKey, userId) // SADD
                 .flatMap(added -> {
                     if (added == 0L) {
-                        // Already joined → just send existing state
-                        log.info("User {} is already joined in game {}", userId, gameId);
+                        log.info("User {} already joined game {}", userId, gameId);
                         return afterSuccessfulJoin(roomId, gameId, userId, capacity);
                     }
 
-                    // New join → attempt payment
-                    return paymentService.processPayment((Long.parseLong(userId)), entryFee, gameId)
-                            .flatMap(paymentSuccess -> {
-                                if (!paymentSuccess) {
-                                    // Payment failed → rollback membership
-                                    return setOps.remove(playersKey, userId)
-                                            .then(publisher.publishUserEvent(userId,
-                                                    Map.of(
-                                                            "type", "error",
-                                                            "payload", Map.of(
-                                                                    "eventType", "game.playerJoinRequest",
-                                                                    "errorType", "paymentFailed",
-                                                                    "message", "Payment failed for user " + userId,
-                                                                    "amount", entryFee
-                                                            )
-                                                    )))
-                                            .then(Mono.error(new PaymentFailedException(Long.parseLong(userId), entryFee)));
-                                }
+                    // 1️⃣ Claim all cards in parallel
+                    return Flux.fromIterable(selectedCardIds)
+                            .flatMap(cardId ->
+                                    cardSelectionService.claimCard(roomId, gameId, userId, cardId, 2)
+                                            .map(result -> Map.entry(cardId, result))
+                            )
+                            .collectList()
+                            .flatMap(results -> {
+                                // Check if any claim failed
+                                List<Map.Entry<String, String>> failed = results.stream()
+                                        .filter(e -> !"OK".equals(e.getValue()))
+                                        .toList();
 
-                                paymentCompleted.set(true);
-                                log.info("Payment complete for user {} in game {}", userId, gameId);
+                                if (!failed.isEmpty()) {
+                                    String firstError = failed.get(0).getValue();
+                                    log.warn("Card claim failed for user {} in game {}: {}", userId, gameId, firstError);
 
-                                // After payment success → complete join
-                                return afterSuccessfulJoin(roomId, gameId, userId, capacity);
-                            })
-                            .onErrorResume(error -> {
-                                // Rollback membership on unexpected errors after payment
-                                log.error("Join failed for user {}: {}", userId, error.getMessage(), error);
-                                if (paymentCompleted.get()) {
-//                                    return paymentService.processRefund(Long.parseLong(userId), gameId)
-//                                            .doOnSuccess(refunded ->
-//                                                    log.warn("Refund {} for user {} after failure",
-//                                                            refunded ? "succeeded" : "failed", userId))
-//                                            .then(setOps.remove(playersKey, userId))
-//                                            .then();
-
-                                    return paymentService.processRefund(Long.parseLong(userId), gameId)
-                                            .onErrorResume(refundErr -> {
-                                                log.error("Refund failed for user {}: {}", userId, refundErr.getMessage(), refundErr);
-                                                return Mono.empty(); // ignore refund error
-                                            })
+                                    // Notify user about the error via WebSocket
+                                    return publisher.publishUserEvent(userId, Map.of(
+                                                    "type", "error",
+                                                    "payload", Map.of(
+                                                            "eventType", "game.playerJoinRequest",
+                                                            "message", firstError,
+                                                            "failedCards", failed.stream().map(Map.Entry::getKey).toList()
+                                                    )
+                                            ))
+                                            // Rollback membership since they never joined successfully
                                             .then(setOps.remove(playersKey, userId))
                                             .then();
-
                                 }
-                                return setOps.remove(playersKey, userId).then();
+
+                                // 2️⃣ All claims succeeded → Process payment
+                                log.info("All cards claimed successfully for user {} in game {}. Proceeding with payment...", userId, gameId);
+                                return paymentService.processPayment(Long.parseLong(userId), entryFee, gameId)
+                                        .flatMap(paymentSuccess -> {
+                                            if (!paymentSuccess) {
+                                                log.warn("Payment failed for user {} in game {}", userId, gameId);
+
+                                                // 3️⃣ Payment failed → release all claimed cards & refund
+                                                return Flux.fromIterable(selectedCardIds)
+                                                        .flatMap(cardId -> cardSelectionService.releaseCard(roomId, gameId, userId, cardId))
+                                                        .then(paymentService.processRefund(Long.parseLong(userId), gameId)
+                                                                .onErrorResume(err -> {
+                                                                    log.error("Refund failed for user {}: {}", userId, err.getMessage(), err);
+                                                                    return Mono.empty();
+                                                                }))
+                                                        .then(setOps.remove(playersKey, userId))
+                                                        .then(publisher.publishUserEvent(userId, Map.of(
+                                                                "type", "error",
+                                                                "payload", Map.of(
+                                                                        "eventType", "game.playerJoinRequest",
+                                                                        "errorType", "paymentFailed",
+                                                                        "message", "Payment failed for user " + userId,
+                                                                        "amount", entryFee
+                                                                )
+                                                        )))
+                                                        .then(Mono.error(new PaymentFailedException(Long.parseLong(userId), entryFee)));
+                                            }
+
+                                            // ✅ Payment success → complete join
+                                            paymentCompleted.set(true);
+                                            log.info("Payment successful for user {} in game {}", userId, gameId);
+                                            return afterSuccessfulJoin(roomId, gameId, userId, capacity);
+                                        })
+                                        .onErrorResume(error -> {
+                                            log.error("Unexpected error during payment for user {}: {}", userId, error.getMessage(), error);
+
+                                            if (paymentCompleted.get()) {
+                                                return paymentService.processRefund(Long.parseLong(userId), gameId)
+                                                        .onErrorResume(refundErr -> {
+                                                            log.error("Refund failed for user {}: {}", userId, refundErr.getMessage(), refundErr);
+                                                            return Mono.empty();
+                                                        })
+                                                        .then(Flux.fromIterable(selectedCardIds)
+                                                                .flatMap(cardId -> cardSelectionService.releaseCard(roomId, gameId, userId, cardId))
+                                                                .then(setOps.remove(playersKey, userId))
+                                                                .then());
+                                            }
+
+                                            // If payment not completed → release cards, remove user
+                                            return Flux.fromIterable(selectedCardIds)
+                                                    .flatMap(cardId -> cardSelectionService.releaseCard(roomId, gameId, userId, cardId))
+                                                    .then(setOps.remove(playersKey, userId))
+                                                    .then();
+                                        });
                             });
                 });
     }
+
+//    ======================================================================
 
     /**
      * Send state to a player who is already joined.
