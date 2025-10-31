@@ -456,7 +456,7 @@ public class GameService {
                         timeLeft = Instant.now().until(gameCountdownEndTime, ChronoUnit.SECONDS);
                     } else {
                         // Handle the case where countdown end time is missing
-                        log.warn("Countdown end time is null for game state: {}", state);
+                        log.warn("Countdown end time is null for game state with game id: {}", state.getGameId());
                         // or some default value
                     }
 
