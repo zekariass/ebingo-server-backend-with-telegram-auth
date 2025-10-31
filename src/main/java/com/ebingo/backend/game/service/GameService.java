@@ -622,41 +622,39 @@ public class GameService {
                             .then(
                                     // After countdown, check player count again before starting
                                     Mono.defer(() ->
-                                                    gameStateService.getAllPlayers(gameId)
-                                                            .flatMap(state -> {
-                                                                int playersCount = state.size();
-                                                                log.info("Countdown finished. Players: {} / min: {}", playersCount, minPlayersToStart);
-                                                                if (playersCount >= minPlayersToStart) {
-                                                                    return startGame(gameId, roomId, userId, capacity);
-                                                                } else {
-                                                                    log.warn("Not enough players after countdown. Game {} will not start.", gameId);
+                                            gameStateService.getAllPlayers(gameId)
+                                                    .flatMap(state -> {
+                                                        int playersCount = state.size();
+                                                        log.info("Countdown finished. Players: {} / min: {}", playersCount, minPlayersToStart);
+                                                        if (playersCount >= minPlayersToStart) {
+                                                            return startGame(gameId, roomId, userId, capacity);
+                                                        } else {
+                                                            log.warn("Not enough players after countdown. Game {} will not start.", gameId);
 
-                                                                    return gameStateService.getGameState(roomId)
-                                                                            .flatMap(gState -> {
-                                                                                // Reset game state to READY
-                                                                                gState.setStatus(GameStatus.READY);
-                                                                                gState.setCountdownEndTime(null);
-                                                                                gState.setStatusUpdatedAt(Instant.now());
-                                                                                return gameStateService.saveGameStateToRedis(gState, roomId)
-                                                                                        .then(updateGameToDatabase(gState))
-                                                                                        .then(publisher.publishEvent(
-                                                                                                RedisKeys.roomChannel(roomId),
-                                                                                                Map.of(
-                                                                                                        "type", "game.notEnoughPlayers",
-                                                                                                        "payload", Map.of(
-                                                                                                                "roomId", roomId,
-                                                                                                                "gameId", gameId,
-                                                                                                                "status", gState.getStatus(),
-                                                                                                                "joinedPlayers", gState.getJoinedPlayers()),
-                                                                                                                "playersCount", playersCount
-
-//                                                                                                        "gameState", gState
-                                                                                                        )
+                                                            return gameStateService.getGameState(roomId)
+                                                                    .flatMap(gState -> {
+                                                                        // Reset game state to READY
+                                                                        gState.setStatus(GameStatus.READY);
+                                                                        gState.setCountdownEndTime(null);
+                                                                        gState.setStatusUpdatedAt(Instant.now());
+                                                                        return gameStateService.saveGameStateToRedis(gState, roomId)
+                                                                                .then(updateGameToDatabase(gState))
+                                                                                .then(publisher.publishEvent(
+                                                                                        RedisKeys.roomChannel(roomId),
+                                                                                        Map.of(
+                                                                                                "type", "game.state",
+                                                                                                "payload", Map.of(
+                                                                                                        "roomId", roomId,
+                                                                                                        "gameId", gameId,
+                                                                                                        "status", gState.getStatus(),
+                                                                                                        "joinedPlayers", gState.getJoinedPlayers(),
+                                                                                                        "playersCount", playersCount
                                                                                                 )
-                                                                                        ));
-                                                                            }).then();
-                                                                }
-                                                            })
+                                                                                        )
+                                                                                ));
+                                                                    }).then();
+                                                        }
+                                                    })
                                     )
                             );
                 }).then();
