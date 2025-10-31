@@ -549,7 +549,7 @@ public class GameService {
                                                                         "payload", Map.of(
                                                                                 "playerId", userId,
                                                                                 "gameId", gameId,
-                                                                                "gameState", updatedState,
+//                                                                                "gameState", updatedState,
                                                                                 "joinedPlayers", players,
                                                                                 "playersCount", playersCount,
                                                                                 "releasedCardsIds", cardIds,
