@@ -492,7 +492,8 @@ public class GameService {
                                 )).then();
                     }
 
-                    if (timeLeft < 10) {
+                    if (timeLeft <= 10 && timeLeft >= 0) {
+                        // Game is almost starting → personal acknowledgement only
                         log.info("User {} tried to cancel, but game {} is almost starting", userId, gameId);
                         return publisher.publishUserEvent(userId,
                                 Map.of(
