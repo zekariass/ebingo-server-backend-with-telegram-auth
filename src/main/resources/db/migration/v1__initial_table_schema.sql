@@ -3,6 +3,7 @@ CREATE TABLE user_profile (
     telegram_id BIGINT NOT NULL UNIQUE,  -- Telegram ID is unique and immutable
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50),
+    nickname VARCHAR(100),
     phone_number VARCHAR(20) NOT NULL UNIQUE,
     status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- 'ACTIVE', 'BANNED'
     role VARCHAR(30) NOT NULL DEFAULT 'PLAYER',  -- 'PLAYER', 'MODERATOR', 'ADMIN'

@@ -18,4 +18,5 @@ public interface UserProfileService {
 
     Mono<UserProfileDto> getUserProfileByTelegramId(Long telegramId);
 
+    Mono<UserProfileDto> changeName(Long telegramId, String name);
 }

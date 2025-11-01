@@ -80,5 +80,20 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .doOnError(e -> log.error("Failed to fetch user profile for telegramId: {} - {}", telegramId, e.getMessage(), e));
     }
 
+    @Override
+    public Mono<UserProfileDto> changeName(Long telegramId, String name) {
+        log.info("Changing nickname for telegramId {}: {}", telegramId, name);
+
+        return userProfileRepository.findByTelegramId(telegramId)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("User not found for telegramId: " + telegramId)))
+                .flatMap(userProfile -> {
+                    userProfile.setNickname(name != null ? name.trim() : null);
+                    return userProfileRepository.save(userProfile);
+                })
+                .map(UserProfileMapper::toDto)
+                .doOnSuccess(updated -> log.info("Name changed successfully for telegramId {}: {}", telegramId, updated))
+                .doOnError(e -> log.error("Error changing name for telegramId {}: {}", telegramId, e.getMessage(), e));
+    }
+
 
 }

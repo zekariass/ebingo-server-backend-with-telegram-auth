@@ -17,6 +17,7 @@ public final class UserProfileMapper {
                 .telegramId(userProfile.getTelegramId())
                 .firstName(userProfile.getFirstName())
                 .lastName(userProfile.getLastName())
+                .nickname(userProfile.getNickname())
                 .phone(userProfile.getPhoneNumber())
                 .status(userProfile.getStatus())
                 .role(userProfile.getRole())
@@ -34,6 +35,13 @@ public final class UserProfileMapper {
         userProfile.setPhoneNumber(userProfileDto.getPhoneNumber());
         userProfile.setStatus(UserStatus.ACTIVE); // Default status
         userProfile.setRole(UserRole.PLAYER);
+
+        String firstName = userProfileDto.getFirstName() != null ? userProfileDto.getFirstName() : "";
+        String lastName = userProfileDto.getLastName() != null ? userProfileDto.getLastName() : "";
+
+        String nickName = (firstName + " " + lastName).trim();
+        userProfile.setNickname(nickName);
+
         return userProfile;
     }
 

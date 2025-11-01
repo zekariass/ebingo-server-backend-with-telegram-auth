@@ -31,6 +31,9 @@ public class UserProfile {
     @Column("last_name")
     private String lastName;
 
+    @Column("nickname")
+    private String nickname;
+
     @Column("phone_number")
     private String phoneNumber;
 
